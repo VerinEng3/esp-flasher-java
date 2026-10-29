@@ -16,7 +16,7 @@ public class AppSettings {
         this.logFileEnabled = false;
         this.logFilePath = System.getProperty("user.home") + "/Documents/esp-flasher-logs";
         this.lastChip = "auto";
-        this.lastBaudRate = "460800";
+        this.lastBaudRate = "921600";
         this.lastBinPath = "";
         this.lastPort = "";
     }

@@ -90,6 +90,9 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     private Button toolbarFlasherBtn;
     private Button toolbarSettingsBtn;
 
+    /** Velocidade pré-selecionada ao abrir: a maior da lista. */
+    private static final String BAUD_DEFAULT = "921600";
+
     // Painéis de pré-requisitos (tela principal + Configurações > Caminhos)
     private final List<PrereqPanel> prereqPanels = new ArrayList<>();
     private Stage mainStage;
@@ -219,7 +222,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         // Apply last-used settings
         AppSettings settings = settingsManager.getSettings();
         if (!settings.getLastChip().isEmpty()) chipCombo.setValue(settings.getLastChip());
-        if (!settings.getLastBaudRate().isEmpty()) baudCombo.setValue(settings.getLastBaudRate());
+        // Velocidade não é restaurada: o app sempre abre na maior (BAUD_DEFAULT)
         if (!settings.getLastBinPath().isEmpty()) binPathField.setText(settings.getLastBinPath());
     }
 
@@ -406,8 +409,9 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
         // ── Baud row ────────────────────────────────────────
         baudCombo = new ComboBox<>();
-        baudCombo.getItems().addAll("460800", "921600", "230400", "115200");
-        baudCombo.setValue("460800");
+        // Da maior para a menor; 921600 é o máximo que os conversores comuns (CP2102, CH340, FTDI) aceitam
+        baudCombo.getItems().addAll(BAUD_DEFAULT, "460800", "230400", "115200");
+        baudCombo.setValue(BAUD_DEFAULT);
         HBox baudRow = new HBox(10, new Label("Velocidade (baud)"), baudCombo);
         baudRow.setAlignment(Pos.CENTER_LEFT);
 

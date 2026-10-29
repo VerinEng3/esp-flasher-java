@@ -13,7 +13,7 @@ Este repositório é o **fork em português da Verin**, voltado para gravação 
 - **Interface toda em português (pt-BR).**
 - **Painel de pré-requisitos na tela principal.** Mostra o caminho e a versão do Python e do esptool em uso, ou avisa que não estão instalados.
 - **Botões "Instalar" e "Selecionar..." ao lado de cada item.** "Instalar" instala o Python 3.13 (via `winget`, sem administrador) ou o esptool (via `pip`). "Selecionar..." aponta um caminho manualmente.
-- **Detecção ampla do esptool.** Procura no Python (launcher `py`, PATH, pastas padrão, conda), no PATH, no ESP-IDF, no PlatformIO, na Arduino IDE e no pipx. Um caminho manual inválido não impede a busca automática.
+- **Detecção ampla do esptool.** Procura no Python (launcher `py`, PATH, pastas padrão, conda), no PATH, no ESP-IDF, no PlatformIO, na Arduino IDE e no pipx, e escolhe a versão mais recente. Um caminho manual inválido não impede a busca automática.
 - **Lista de todas as instalações** em Configurações > Caminhos, com um botão "Usar" em cada uma.
 - **Instalador para Windows com escolha de modo:** para todos os usuários ou somente para o usuário atual.
 - **Atualização automática a partir deste fork.**
@@ -27,7 +27,7 @@ Este repositório é o **fork em português da Verin**, voltado para gravação 
 - **Explorar projetos populares:** mostra os firmwares suportados com logo e link para o repositório.
 - Modo **Binário próprio** para qualquer `.bin` (ESPHome, WLED, MicroPython, Arduino, ESP-IDF).
 - Detecção automática da porta serial do ESP32/ESP8266 (CP210x, CH340, FTDI, USB nativo).
-- Escolha do chip, velocidade até 921600 baud e offset de gravação.
+- Escolha do chip, velocidade (abre em 921600 baud, a mais rápida) e offset de gravação.
 - Barra de progresso e saída do `esptool` em tempo real.
 - **Modo Produção:** grava automaticamente cada placa assim que ela é conectada.
 - **Arquivo de log** opcional em CSV com data, porta, endereço MAC e resultado de cada gravação.
@@ -74,7 +74,7 @@ Dica: clique em **Explorar projetos populares →** para ver todos os firmwares 
 2. Clique em **Procurar...** e escolha o arquivo `.bin`.
 3. Escolha o **Chip**, ou deixe em `auto` para o `esptool` detectar.
 4. Escolha a **Porta**. Clique em **Atualizar** se a placa não aparecer.
-5. Escolha a **Velocidade**. `460800` é um valor seguro, e `921600` é mais rápido se o conversor USB-serial suportar.
+5. A **Velocidade** já vem em `921600`, a mais rápida. Se a gravação falhar por conexão, use `460800` ou `115200`.
 6. Defina o **Offset de gravação**: `0x0` para binários ESP32 unificados e para todo ESP8266, `0x1000` para só o bootloader do ESP32, `0x10000` para só a aplicação.
 7. Clique em **Gravar**.
 
@@ -130,7 +130,7 @@ ISCC.exe /DAppVersion=<versão> installer/esp-flasher.iss
 | Python "Não instalado" | Clique em **Instalar** (usa o `winget`) ou instale pelo [python.org](https://www.python.org/downloads/) e clique em **Verificar**. |
 | "[manual inválido]" ao lado do caminho | O caminho escolhido antes não existe mais. Use **Detecção automática** em Configurações > Caminhos. |
 | Nenhuma porta aparece | Instale o driver USB-serial da placa (CP210x, CH340, FTDI) e clique em **Atualizar**. |
-| "Timed out connecting to ESP" | Segure o botão BOOT ao conectar a placa. Tente uma velocidade menor (ex.: `115200`). |
+| "Timed out connecting to ESP" ou erro no meio da gravação | Segure o botão BOOT ao conectar a placa. Se o conversor USB-serial não aguentar `921600`, escolha `460800` ou `115200`. |
 | Firmware não roda depois de gravar | Confira o offset. Muitas imagens ESP32 precisam de `0x1000` ou `0x10000`. |
 
 A saída completa do `esptool` aparece na área de log. Inclua esse texto ao abrir um chamado.

@@ -24,9 +24,10 @@ import java.util.regex.Pattern;
  * Localiza o Python e o esptool na máquina, informa os caminhos encontrados
  * e instala o que estiver faltando.
  *
- * <p>Onde o esptool é procurado, nesta ordem:</p>
+ * <p>Com caminho escolhido à mão, ele é usado. Sem isso, entre todas as
+ * instalações encontradas é escolhida a de versão mais recente; em empate,
+ * vale a ordem abaixo.</p>
  * <ol>
- *   <li>caminho escolhido pelo usuário;</li>
  *   <li>módulo {@code esptool} de cada Python encontrado (launcher py, PATH,
  *       pastas padrão, conda);</li>
  *   <li>{@code esptool.exe}/{@code esptool.py} em qualquer pasta do PATH;</li>
@@ -174,10 +175,11 @@ public class PrereqChecker {
         boolean pyInvalid = false;
 
         // Python escolhido pelo usuário vem primeiro; se for inválido, segue a detecção automática
+        String[] customPy = null;
         String customPython = getCustomPythonPath();
         if (!customPython.isEmpty()) {
-            String[] id = identifyPython(customPython);
-            if (id != null) pythons.add(id);
+            customPy = identifyPython(customPython);
+            if (customPy != null) pythons.add(customPy);
             else pyInvalid = true;
         }
         addUnique(pythons, discoverPythons());
@@ -192,17 +194,13 @@ public class PrereqChecker {
             fromCustom = found != null;
             esInvalid = found == null;
         }
-        if (found == null) {
-            for (String[] py : pythons) {
-                found = probePythonModule(py);
-                if (found != null) break;
-            }
+        // Python escolhido à mão que já tem o esptool: respeita a escolha
+        if (found == null && customPy != null) {
+            found = probePythonModule(customPy);
         }
+        // Detecção automática: entre todas as instalações, a de versão mais recente
         if (found == null) {
-            for (FileCandidate c : esptoolFileCandidates()) {
-                found = probeEsptoolFile(c.file(), c.source(), pythons);
-                if (found != null) break;
-            }
+            found = newest(collectAll(pythons));
         }
 
         // Python mostrado: o que tem o esptool, ou o primeiro encontrado
@@ -224,7 +222,7 @@ public class PrereqChecker {
         customEsptoolInvalid = esInvalid;
     }
 
-    /** Procura todas as instalações do esptool (mais lento; usado na tela de Caminhos). */
+    /** Procura todas as instalações do esptool (usado na tela de Caminhos). */
     public List<EsptoolInstall> findAllEsptools() {
         List<String[]> pythons = new ArrayList<>();
         String customPython = getCustomPythonPath();
@@ -233,7 +231,11 @@ public class PrereqChecker {
             if (id != null) pythons.add(id);
         }
         addUnique(pythons, discoverPythons());
+        return collectAll(pythons);
+    }
 
+    /** Todas as instalações que respondem, sem repetir caminho, em ordem de prioridade. */
+    private List<EsptoolInstall> collectAll(List<String[]> pythons) {
         Map<String, EsptoolInstall> byLocation = new LinkedHashMap<>();
         for (String[] py : pythons) {
             EsptoolInstall e = probePythonModule(py);
@@ -245,6 +247,36 @@ public class PrereqChecker {
             if (e != null) byLocation.putIfAbsent(key(e.location()), e);
         }
         return new ArrayList<>(byLocation.values());
+    }
+
+    /** A de versão mais recente; em empate, a primeira (maior prioridade). */
+    static EsptoolInstall newest(List<EsptoolInstall> installs) {
+        EsptoolInstall best = null;
+        for (EsptoolInstall e : installs) {
+            if (best == null || compareVersions(e.version(), best.version()) > 0) best = e;
+        }
+        return best;
+    }
+
+    /** Compara "5.6.0" com "4.12.0" numericamente; versões ilegíveis contam como 0. */
+    static int compareVersions(String a, String b) {
+        String[] pa = a == null ? new String[0] : a.split("[^0-9]+");
+        String[] pb = b == null ? new String[0] : b.split("[^0-9]+");
+        int n = Math.max(pa.length, pb.length);
+        for (int i = 0; i < n; i++) {
+            int x = i < pa.length && !pa[i].isEmpty() ? parseIntSafe(pa[i]) : 0;
+            int y = i < pb.length && !pb[i].isEmpty() ? parseIntSafe(pb[i]) : 0;
+            if (x != y) return Integer.compare(x, y);
+        }
+        return 0;
+    }
+
+    private static int parseIntSafe(String s) {
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private static String key(String path) {
