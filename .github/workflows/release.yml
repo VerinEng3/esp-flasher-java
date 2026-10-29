@@ -19,15 +19,24 @@ jobs:
           distribution: 'zulu'
           cache: 'maven'
       - run: mvn -B package
-      # The `windows` Maven profile in pom.xml auto-activates on Windows and
-      # already sets jpackage.type=MSI, so no extra -D flag is needed here.
-      # (Passing -Djpackage.type=MSI on PowerShell breaks argument parsing.)
+      # O profile `windows` do pom.xml gera so a pasta do app (APP_IMAGE);
+      # o instalador vem do Inno Setup (installer/esp-flasher.iss).
       - run: mvn -B jpackage:jpackage
       - name: Get version
         id: version
         run: echo "VERSION=$($env:GITHUB_REF -replace 'refs/tags/v','')" >> $env:GITHUB_OUTPUT
+      - name: Install Inno Setup
+        run: |
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup*\ISCC.exe", "$env:ProgramFiles\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) { choco install innosetup -y --no-progress }
+      - name: Build installer
+        run: |
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup*\ISCC.exe", "$env:ProgramFiles\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          & $iscc.FullName "/DAppVersion=${{ steps.version.outputs.VERSION }}" installer\esp-flasher.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: softprops/action-gh-release@v1
         with:
-          files: target/dist/*.msi
+          name: ESP Flasher v${{ steps.version.outputs.VERSION }}
+          files: target/installer/*-setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

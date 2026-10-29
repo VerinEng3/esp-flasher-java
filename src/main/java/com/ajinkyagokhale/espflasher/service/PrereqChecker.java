@@ -7,10 +7,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -23,9 +24,17 @@ import java.util.regex.Pattern;
  * Localiza o Python e o esptool na máquina, informa os caminhos encontrados
  * e instala o que estiver faltando.
  *
- * <p>Ordem de busca do esptool: caminho escolhido pelo usuário, depois o módulo
- * {@code esptool} de qualquer Python encontrado. Ordem de busca do Python: caminho
- * escolhido pelo usuário, launcher {@code py}, PATH e pastas padrão de instalação.</p>
+ * <p>Onde o esptool é procurado, nesta ordem:</p>
+ * <ol>
+ *   <li>caminho escolhido pelo usuário;</li>
+ *   <li>módulo {@code esptool} de cada Python encontrado (launcher py, PATH,
+ *       pastas padrão, conda);</li>
+ *   <li>{@code esptool.exe}/{@code esptool.py} em qualquer pasta do PATH;</li>
+ *   <li>ESP-IDF ({@code C:\Espressif}, {@code ~/.espressif});</li>
+ *   <li>PlatformIO ({@code ~/.platformio/packages});</li>
+ *   <li>Arduino IDE ({@code Arduino15/packages});</li>
+ *   <li>pipx ({@code ~/.local/bin}).</li>
+ * </ol>
  */
 public class PrereqChecker {
     private static final Preferences PREFS = Preferences.userNodeForPackage(PrereqChecker.class);
@@ -47,16 +56,36 @@ public class PrereqChecker {
             + " if os.path.isfile(os.path.join(p,b))];"
             + "print('OK|'+str(getattr(e,'__version__','?'))+'|'+(f[0] if f else os.path.dirname(e.__file__)))";
 
-    private static final Pattern VERSION_IN_TEXT = Pattern.compile("v?(\\d+\\.\\d+(?:\\.\\d+)?)");
+    /**
+     * Saída de "esptool version": "esptool v5.6.0" ou "esptool.py v4.12.0".
+     * Versões 0.x são o esptool-ck antigo, que tem outra linha de comando.
+     */
+    private static final Pattern ESPTOOL_VERSION =
+            Pattern.compile("esptool(?:\\.py)?\\s+v([1-9]\\d*\\.\\d+(?:\\.\\d+)?)");
+
+    private static final String[] ESPTOOL_FILE_NAMES = {"esptool.exe", "esptool", "esptool.py"};
+
+    /** Uma instalação do esptool que respondeu ao comando "version". */
+    public record EsptoolInstall(
+            List<String> command,   // comando para gravar (ex.: [python, -m, esptool] ou [esptool.exe])
+            String location,        // caminho mostrado ao usuário
+            String version,
+            String source,          // de onde veio (Python, PATH, ESP-IDF, PlatformIO...)
+            String modulePython     // Python que contém o módulo, ou null se for executável/script
+    ) {
+        public EsptoolInstall {
+            command = List.copyOf(command);
+        }
+    }
 
     // Estado da última verificação (lido pela UI em outra thread)
     private volatile String pythonExe;
     private volatile String pythonVersion;
     private volatile boolean pipAvailable;
-    private volatile List<String> esptoolCommand;
-    private volatile String esptoolVersion;
-    private volatile String esptoolLocation;
+    private volatile EsptoolInstall esptool;
     private volatile boolean esptoolFromCustomPath;
+    private volatile boolean customPythonInvalid;
+    private volatile boolean customEsptoolInvalid;
 
     // ── Caminhos escolhidos pelo usuário ───────────────────────
 
@@ -81,22 +110,43 @@ public class PrereqChecker {
         setCustomEsptoolPath("");
     }
 
+    /** Passa a usar a instalação escolhida (da lista de instalações encontradas). */
+    public static void useInstall(EsptoolInstall install) {
+        if (install.modulePython() != null) {
+            setCustomPythonPath(install.modulePython());
+            setCustomEsptoolPath("");
+        } else {
+            setCustomEsptoolPath(install.location());
+        }
+    }
+
     // ── Resultado da verificação ───────────────────────────────
 
     /** Caminho absoluto do Python em uso, ou null se não encontrado. */
     public String getPythonExe()        { return pythonExe; }
     public String getPythonVersion()    { return pythonVersion; }
     public boolean isPipAvailable()     { return pipAvailable; }
-    /** Versão do esptool encontrada, ou null. */
-    public String getEsptoolVersion()   { return esptoolVersion; }
-    /** Caminho do executável/módulo do esptool, ou null. */
-    public String getEsptoolLocation()  { return esptoolLocation; }
+    public boolean isCustomPythonInvalid()  { return customPythonInvalid; }
+    public boolean isCustomEsptoolInvalid() { return customEsptoolInvalid; }
     public boolean isEsptoolFromCustomPath() { return esptoolFromCustomPath; }
+
+    /** Instalação do esptool em uso, ou null. */
+    public EsptoolInstall getEsptool()  { return esptool; }
+
+    public String getEsptoolVersion() {
+        EsptoolInstall e = esptool;
+        return e == null ? null : e.version();
+    }
+
+    public String getEsptoolLocation() {
+        EsptoolInstall e = esptool;
+        return e == null ? null : e.location();
+    }
 
     /** Comando (tokens) usado para chamar o esptool, ou null se não encontrado. */
     public List<String> getEsptoolCommand() {
-        List<String> cmd = esptoolCommand;
-        return cmd == null ? null : Collections.unmodifiableList(cmd);
+        EsptoolInstall e = esptool;
+        return e == null ? null : e.command();
     }
 
     public boolean isPythonFound() {
@@ -104,7 +154,7 @@ public class PrereqChecker {
     }
 
     public boolean isReady() {
-        return esptoolCommand != null;
+        return esptool != null;
     }
 
     public static boolean isWindows() {
@@ -118,82 +168,105 @@ public class PrereqChecker {
 
     // ── Verificação ─────────────────────────────────────────────
 
+    /** Detecta o Python e o primeiro esptool que funcionar. */
     public synchronized void checkAll() {
-        String foundPython = null;
-        String foundPythonVersion = null;
-        List<String> foundEsptool = null;
-        String foundEsptoolVersion = null;
-        String foundEsptoolLocation = null;
-        boolean fromCustom = false;
+        List<String[]> pythons = new ArrayList<>();
+        boolean pyInvalid = false;
 
-        // 1. Python escolhido pelo usuário tem prioridade absoluta
+        // Python escolhido pelo usuário vem primeiro; se for inválido, segue a detecção automática
+        String customPython = getCustomPythonPath();
+        if (!customPython.isEmpty()) {
+            String[] id = identifyPython(customPython);
+            if (id != null) pythons.add(id);
+            else pyInvalid = true;
+        }
+        addUnique(pythons, discoverPythons());
+
+        String customEsptool = getCustomEsptoolPath();
+        EsptoolInstall found = null;
+        boolean fromCustom = false;
+        boolean esInvalid = false;
+
+        if (!customEsptool.isEmpty()) {
+            found = probeEsptoolFile(new File(customEsptool), "Manual", pythons);
+            fromCustom = found != null;
+            esInvalid = found == null;
+        }
+        if (found == null) {
+            for (String[] py : pythons) {
+                found = probePythonModule(py);
+                if (found != null) break;
+            }
+        }
+        if (found == null) {
+            for (FileCandidate c : esptoolFileCandidates()) {
+                found = probeEsptoolFile(c.file(), c.source(), pythons);
+                if (found != null) break;
+            }
+        }
+
+        // Python mostrado: o que tem o esptool, ou o primeiro encontrado
+        String[] chosen = null;
+        if (found != null && found.modulePython() != null) {
+            for (String[] py : pythons) {
+                if (py[0].equalsIgnoreCase(found.modulePython())) chosen = py;
+            }
+        }
+        if (chosen == null && !pythons.isEmpty()) chosen = pythons.get(0);
+
+        pythonExe = chosen == null ? null : chosen[0];
+        pythonVersion = chosen == null ? null : chosen[1];
+        pipAvailable = chosen != null
+                && runCommand(List.of(chosen[0], "-m", "pip", "--version")) != null;
+        esptool = found;
+        esptoolFromCustomPath = fromCustom;
+        customPythonInvalid = pyInvalid;
+        customEsptoolInvalid = esInvalid;
+    }
+
+    /** Procura todas as instalações do esptool (mais lento; usado na tela de Caminhos). */
+    public List<EsptoolInstall> findAllEsptools() {
         List<String[]> pythons = new ArrayList<>();
         String customPython = getCustomPythonPath();
         if (!customPython.isEmpty()) {
             String[] id = identifyPython(customPython);
             if (id != null) pythons.add(id);
-        } else {
-            pythons.addAll(discoverPythons());
         }
+        addUnique(pythons, discoverPythons());
 
-        // 2. esptool escolhido pelo usuário (executável standalone ou esptool.py)
-        String customEsptool = getCustomEsptoolPath();
-        if (!customEsptool.isEmpty()) {
-            List<String> cmd = new ArrayList<>();
-            if (customEsptool.toLowerCase(Locale.ROOT).endsWith(".py")) {
-                if (!pythons.isEmpty()) {
-                    cmd.add(pythons.get(0)[0]);
-                    cmd.add(customEsptool);
-                }
-            } else {
-                cmd.add(customEsptool);
-            }
-            if (!cmd.isEmpty()) {
-                List<String> versionCmd = new ArrayList<>(cmd);
-                versionCmd.add("version");
-                String out = runCommand(versionCmd);
-                if (out != null) {
-                    foundEsptool = cmd;
-                    foundEsptoolVersion = extractVersion(out);
-                    foundEsptoolLocation = customEsptool;
-                    fromCustom = true;
-                }
-            }
+        Map<String, EsptoolInstall> byLocation = new LinkedHashMap<>();
+        for (String[] py : pythons) {
+            EsptoolInstall e = probePythonModule(py);
+            if (e != null) byLocation.putIfAbsent(key(e.location()), e);
         }
-
-        // 3. Primeiro Python que já tenha o esptool; senão, o primeiro Python encontrado
-        if (!pythons.isEmpty()) {
-            String[] chosen = pythons.get(0);
-            if (foundEsptool == null) {
-                for (String[] py : pythons) {
-                    String probe = runCommand(List.of(py[0], "-c", PY_ESPTOOL_PROBE));
-                    if (probe != null && probe.startsWith("OK|")) {
-                        String[] parts = probe.split("\\|", 3);
-                        chosen = py;
-                        foundEsptool = new ArrayList<>(List.of(py[0], "-m", "esptool"));
-                        foundEsptoolVersion = parts.length > 1 ? parts[1] : null;
-                        foundEsptoolLocation = parts.length > 2 ? parts[2] : null;
-                        break;
-                    }
-                }
-            }
-            foundPython = chosen[0];
-            foundPythonVersion = chosen[1];
+        for (FileCandidate c : esptoolFileCandidates()) {
+            if (byLocation.containsKey(key(c.file().getAbsolutePath()))) continue;
+            EsptoolInstall e = probeEsptoolFile(c.file(), c.source(), pythons);
+            if (e != null) byLocation.putIfAbsent(key(e.location()), e);
         }
-
-        pythonExe = foundPython;
-        pythonVersion = foundPythonVersion;
-        pipAvailable = foundPython != null
-                && runCommand(List.of(foundPython, "-m", "pip", "--version")) != null;
-        esptoolCommand = foundEsptool;
-        esptoolVersion = foundEsptoolVersion;
-        esptoolLocation = foundEsptoolLocation;
-        esptoolFromCustomPath = fromCustom;
+        return new ArrayList<>(byLocation.values());
     }
+
+    private static String key(String path) {
+        return path == null ? "" : new File(path).getAbsolutePath().toLowerCase(Locale.ROOT);
+    }
+
+    private static void addUnique(List<String[]> into, List<String[]> more) {
+        for (String[] py : more) {
+            boolean dup = false;
+            for (String[] existing : into) {
+                if (existing[0].equalsIgnoreCase(py[0])) dup = true;
+            }
+            if (!dup) into.add(py);
+        }
+    }
+
+    // ── Python ──────────────────────────────────────────────────
 
     /** Lista Pythons distintos (caminho absoluto, versão), em ordem de preferência. */
     private List<String[]> discoverPythons() {
         Set<String> candidates = new LinkedHashSet<>();
+        String home = System.getProperty("user.home", "");
         if (isWindows()) {
             // Launcher oficial: "py -0p" lista todos os Pythons registrados
             String list = runCommand(List.of("py", "-0p"));
@@ -213,6 +286,10 @@ public class PrereqChecker {
             }
             String systemDrive = System.getenv("SystemDrive");
             if (systemDrive != null) addPythonDirs(candidates, new File(systemDrive + File.separator));
+            for (String conda : List.of("miniconda3", "anaconda3")) {
+                File exe = new File(home, conda + "\\python.exe");
+                if (exe.isFile()) candidates.add(exe.getAbsolutePath());
+            }
         } else {
             candidates.addAll(List.of(
                     "/opt/homebrew/bin/python3",
@@ -221,6 +298,10 @@ public class PrereqChecker {
                     "python3",
                     "python"
             ));
+            for (String conda : List.of("miniconda3", "anaconda3")) {
+                File exe = new File(home, conda + "/bin/python3");
+                if (exe.isFile()) candidates.add(exe.getAbsolutePath());
+            }
         }
 
         List<String[]> result = new ArrayList<>();
@@ -256,6 +337,149 @@ public class PrereqChecker {
         String ver = line.substring(sep + 1).trim();
         if (exe.isEmpty() || !ver.startsWith("3.")) return null;
         return new String[]{exe, ver};
+    }
+
+    // ── esptool ─────────────────────────────────────────────────
+
+    private record FileCandidate(File file, String source) {}
+
+    /** esptool como módulo de um Python: comando [python, -m, esptool]. */
+    private EsptoolInstall probePythonModule(String[] py) {
+        String probe = runCommand(List.of(py[0], "-c", PY_ESPTOOL_PROBE));
+        if (probe == null) return null;
+        String line = lastLine(probe);
+        if (!line.startsWith("OK|")) return null;
+        String[] parts = line.split("\\|", 3);
+        String version = parts.length > 1 ? parts[1] : null;
+        String location = parts.length > 2 ? parts[2] : py[0];
+        return new EsptoolInstall(List.of(py[0], "-m", "esptool"), location, version,
+                "Python " + py[1], py[0]);
+    }
+
+    /** esptool como executável ou esptool.py; valida com "version". */
+    private EsptoolInstall probeEsptoolFile(File file, String source, List<String[]> pythons) {
+        if (!file.isFile()) return null;
+        String path = file.getAbsolutePath();
+        List<List<String>> attempts = new ArrayList<>();
+        if (path.toLowerCase(Locale.ROOT).endsWith(".py")) {
+            // esptool.py precisa de um Python com pyserial; tenta o do próprio pacote primeiro
+            File localPython = pythonNextTo(file);
+            if (localPython != null) attempts.add(List.of(localPython.getAbsolutePath(), path));
+            for (String[] py : pythons) attempts.add(List.of(py[0], path));
+        } else {
+            attempts.add(List.of(path));
+        }
+        for (List<String> cmd : attempts) {
+            List<String> versionCmd = new ArrayList<>(cmd);
+            versionCmd.add("version");
+            String out = runCommand(versionCmd);
+            if (out == null) continue;
+            Matcher m = ESPTOOL_VERSION.matcher(out);
+            if (!m.find()) continue;
+            return new EsptoolInstall(cmd, path, m.group(1), source, null);
+        }
+        return null;
+    }
+
+    /** PlatformIO: ~/.platformio/penv tem o Python que roda o esptool.py do pacote. */
+    private static File pythonNextTo(File esptoolPy) {
+        String home = System.getProperty("user.home", "");
+        String p = esptoolPy.getAbsolutePath().toLowerCase(Locale.ROOT);
+        if (p.contains(".platformio")) {
+            File penv = new File(home, isWindows()
+                    ? ".platformio\\penv\\Scripts\\python.exe"
+                    : ".platformio/penv/bin/python");
+            if (penv.isFile()) return penv;
+        }
+        return null;
+    }
+
+    /** Arquivos do esptool fora de um Python: PATH, ESP-IDF, PlatformIO, Arduino, pipx. */
+    private static List<FileCandidate> esptoolFileCandidates() {
+        List<FileCandidate> out = new ArrayList<>();
+        String home = System.getProperty("user.home", "");
+
+        // PATH
+        String path = System.getenv("PATH");
+        if (path != null) {
+            for (String dir : path.split(File.pathSeparator)) {
+                if (dir.isBlank()) continue;
+                addEsptoolFiles(out, new File(dir.trim()), "PATH");
+            }
+        }
+
+        // ESP-IDF: <ferramentas>/python_env/<ambiente>/Scripts/esptool.exe
+        String idfPyEnv = System.getenv("IDF_PYTHON_ENV_PATH");
+        if (idfPyEnv != null) addScriptsEsptool(out, new File(idfPyEnv), "ESP-IDF");
+        List<File> idfTools = new ArrayList<>();
+        String idfToolsEnv = System.getenv("IDF_TOOLS_PATH");
+        if (idfToolsEnv != null) idfTools.add(new File(idfToolsEnv));
+        idfTools.add(new File(home, ".espressif"));
+        if (isWindows()) {
+            String systemDrive = System.getenv("SystemDrive");
+            idfTools.add(new File((systemDrive != null ? systemDrive : "C:") + "\\Espressif\\tools"));
+        }
+        for (File tools : idfTools) {
+            for (File env : newestFirst(new File(tools, "python_env"))) {
+                addScriptsEsptool(out, env, "ESP-IDF");
+            }
+        }
+
+        // PlatformIO: packages/tool-esptool* (executável oficial ou esptool.py)
+        File pioPackages = new File(home, ".platformio" + File.separator + "packages");
+        File[] pioDirs = pioPackages.listFiles((d, n) -> n.toLowerCase(Locale.ROOT).startsWith("tool-esptool"));
+        if (pioDirs != null) {
+            for (File d : pioDirs) addEsptoolFiles(out, d, "PlatformIO");
+        }
+
+        // Arduino IDE / arduino-cli
+        List<File> arduinoRoots = new ArrayList<>();
+        String localAppData = System.getenv("LOCALAPPDATA");
+        if (localAppData != null) arduinoRoots.add(new File(localAppData, "Arduino15"));
+        arduinoRoots.add(new File(home, ".arduino15"));
+        arduinoRoots.add(new File(home, "Library" + File.separator + "Arduino15"));
+        for (File root : arduinoRoots) {
+            File esp32Tools = new File(root, path("packages", "esp32", "tools", "esptool_py"));
+            for (File v : newestFirst(esp32Tools)) addEsptoolFiles(out, v, "Arduino (ESP32)");
+
+            File esp8266Cores = new File(root, path("packages", "esp8266", "hardware", "esp8266"));
+            for (File core : newestFirst(esp8266Cores)) {
+                File f = new File(core, path("tools", "esptool", "esptool.py"));
+                if (f.isFile()) out.add(new FileCandidate(f, "Arduino (ESP8266)"));
+            }
+        }
+
+        // pipx
+        addEsptoolFiles(out, new File(home, path(".local", "bin")), "pipx");
+
+        // Remove repetidos mantendo a ordem
+        Map<String, FileCandidate> unique = new LinkedHashMap<>();
+        for (FileCandidate c : out) unique.putIfAbsent(key(c.file().getAbsolutePath()), c);
+        return new ArrayList<>(unique.values());
+    }
+
+    private static String path(String... parts) {
+        return String.join(File.separator, parts);
+    }
+
+    /** Subpastas de {@code dir}, nomes em ordem decrescente (versões mais novas primeiro). */
+    private static List<File> newestFirst(File dir) {
+        File[] subs = dir.listFiles(File::isDirectory);
+        if (subs == null) return List.of();
+        List<File> sorted = new ArrayList<>(List.of(subs));
+        sorted.sort((a, b) -> b.getName().compareToIgnoreCase(a.getName()));
+        return sorted;
+    }
+
+    private static void addEsptoolFiles(List<FileCandidate> out, File dir, String source) {
+        for (String name : ESPTOOL_FILE_NAMES) {
+            File f = new File(dir, name);
+            if (f.isFile()) out.add(new FileCandidate(f, source));
+        }
+    }
+
+    private static void addScriptsEsptool(List<FileCandidate> out, File pythonEnv, String source) {
+        addEsptoolFiles(out, new File(pythonEnv, isWindows() ? "Scripts" : "bin"), source);
     }
 
     // ── Instalação ──────────────────────────────────────────────
@@ -371,10 +595,5 @@ public class PrereqChecker {
     private static String lastLine(String s) {
         String[] lines = s.split("\\R");
         return lines[lines.length - 1];
-    }
-
-    private static String extractVersion(String output) {
-        Matcher m = VERSION_IN_TEXT.matcher(output);
-        return m.find() ? m.group(1) : null;
     }
 }

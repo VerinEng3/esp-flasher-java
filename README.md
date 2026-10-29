@@ -1,172 +1,154 @@
-# ESP Flasher (pt-BR) — fork Verin
+# ESP Flasher — gravador de firmware para ESP32 e ESP8266
 
-Fork em português do [ESP Flasher](https://github.com/AjinkyaGokhale/esp-flasher-java), de Ajinkya Gokhale, para gravação de ESP32/ESP8266 em produção.
+**ESP Flasher** é um aplicativo de desktop gratuito e de código aberto para gravar firmware em microcontroladores Espressif **ESP32**, **ESP32-S2/S3/C3/C6/H2** e **ESP8266**. Ele usa o [`esptool`](https://github.com/espressif/esptool) oficial por trás de uma interface gráfica, sem precisar de linha de comando.
 
-## O que muda neste fork
+Este repositório é o **fork em português da Verin**, voltado para gravação em produção no Windows. O projeto original é o [ESP Flasher de Ajinkya Gokhale](https://github.com/AjinkyaGokhale/esp-flasher-java).
 
-- **Interface traduzida para português (pt-BR).**
-- **Painel de pré-requisitos na tela principal.** Mostra o caminho e a versão do Python e do esptool encontrados, ou indica que não estão instalados.
-- **Botões ao lado de cada item.** "Instalar" instala o que falta (Python 3.13 via `winget`, esptool via `pip`) e "Selecionar..." aponta um caminho manualmente. Um `esptool.exe` standalone, sem Python, também é aceito.
-- **Detecção mais ampla.** Procura no launcher `py`, no PATH e nas pastas padrão do Python, e prefere o Python que já tem o esptool.
-- **Atualização automática aponta para este fork**, e o instalador MSI substitui a versão anterior ao atualizar.
+![Janela principal do ESP Flasher](docs/screenshots/main.png)
+
+---
+
+## O que este fork acrescenta
+
+- **Interface toda em português (pt-BR).**
+- **Painel de pré-requisitos na tela principal.** Mostra o caminho e a versão do Python e do esptool em uso, ou avisa que não estão instalados.
+- **Botões "Instalar" e "Selecionar..." ao lado de cada item.** "Instalar" instala o Python 3.13 (via `winget`, sem administrador) ou o esptool (via `pip`). "Selecionar..." aponta um caminho manualmente.
+- **Detecção ampla do esptool.** Procura no Python (launcher `py`, PATH, pastas padrão, conda), no PATH, no ESP-IDF, no PlatformIO, na Arduino IDE e no pipx. Um caminho manual inválido não impede a busca automática.
+- **Lista de todas as instalações** em Configurações > Caminhos, com um botão "Usar" em cada uma.
+- **Instalador para Windows com escolha de modo:** para todos os usuários ou somente para o usuário atual.
+- **Atualização automática a partir deste fork.**
+
+---
+
+## Funcionalidades
+
+- Instalador para Windows com o Java embutido, sem precisar instalar Java.
+- **Catálogo de firmwares populares:** grava Tasmota e Tasmota SML (ottelo9) com um clique, baixando o binário certo para o chip e guardando em cache.
+- **Explorar projetos populares:** mostra os firmwares suportados com logo e link para o repositório.
+- Modo **Binário próprio** para qualquer `.bin` (ESPHome, WLED, MicroPython, Arduino, ESP-IDF).
+- Detecção automática da porta serial do ESP32/ESP8266 (CP210x, CH340, FTDI, USB nativo).
+- Escolha do chip, velocidade até 921600 baud e offset de gravação.
+- Barra de progresso e saída do `esptool` em tempo real.
+- **Modo Produção:** grava automaticamente cada placa assim que ela é conectada.
+- **Arquivo de log** opcional em CSV com data, porta, endereço MAC e resultado de cada gravação.
+- Tema claro ou escuro conforme o sistema.
+- Contador de placas gravadas.
+- Código aberto, licença MIT, sem telemetria.
+
+---
 
 ## Instalação
 
-Baixe o `.msi` na página de [Releases](https://github.com/VerinEng3/esp-flasher-java/releases/latest) e execute. O instalador já inclui o Java, então o computador não precisa ter Java instalado. Na primeira abertura, use os botões do painel de pré-requisitos se o Python ou o esptool não forem encontrados.
+1. Baixe o `ESP-Flasher-<versão>-setup.exe` na página de [Releases](https://github.com/VerinEng3/esp-flasher-java/releases/latest).
+2. Execute o instalador e escolha o modo:
+   - **Instalar para todos os usuários:** instala em `Arquivos de Programas` e pede administrador.
+   - **Instalar somente para mim:** instala em `%LOCALAPPDATA%\Programs`, sem administrador.
+3. Se o SmartScreen avisar, clique em **Mais informações** e depois em **Executar assim mesmo**. O instalador ainda não é assinado.
 
-## Gerar uma nova versão
-
-1. Altere `<version>` no `pom.xml` (ex.: `1.2.0`).
-2. Faça commit e crie a tag correspondente: `git tag v1.2.0 && git push origin v1.2.0`.
-3. O GitHub Actions gera o `.msi` (Windows) e publica a release.
-
----
-
-*Documentação original (inglês) abaixo.*
-
-# ESP Flasher — GUI Firmware Flashing Tool for ESP32 and ESP8266
-
-**ESP Flasher** is a free, open-source desktop app for flashing firmware to Espressif **ESP32**, **ESP32-S2/S3/C3/C6/H2**, and **ESP8266** microcontrollers. It wraps the official [`esptool`](https://github.com/espressif/esptool) in a native JavaFX GUI — no command line needed.
-
-Works on **macOS** (Apple Silicon + Intel) and **Windows**. Flash **Tasmota**, **ESPHome**, **WLED**, **MicroPython**, **Arduino**, and custom ESP-IDF firmware from a single `.bin` file. A modern alternative to **Tasmotizer** and the **Espressif Flash Download Tool** that runs natively on Mac.
-
-![ESP Flasher main window on macOS — flashing an ESP32 firmware binary](docs/screenshots/main.png)
-
-![ESP Flasher Explore Popular Projects view — browse Tasmota and other supported firmware with one-click flashing](docs/screenshots/pop.png)
+Ao instalar uma versão nova por cima, o instalador atualiza a existente e mantém o modo escolhido antes.
 
 ---
 
-## Features
+## Pré-requisitos
 
-- Native `.dmg` and `.msi` installers — no Python GUI required to launch
-- **Popular firmware catalog** — one-click flash of Tasmota and Tasmota SML (ottelo9); auto-downloads the correct factory binary for your chip and caches it locally
-- **Explore Popular Projects** view — browse supported firmware with logos and open project repositories directly
-- Custom Binary mode for any `.bin` (ESPHome, WLED, MicroPython, Arduino, ESP-IDF)
-- Automatic ESP32/ESP8266 serial port detection (CP210x, CH340, FTDI)
-- Selectable chip type, baud rate up to 921600, and custom flash offset
-- Live progress bar and real-time `esptool` log output
-- **Factory Mode** — auto-flashes every ESP board the moment it is plugged in
-- Inline **Settings** view: detected Python/esptool paths, custom path overrides, optional flash-log CSV with MAC-address audit trail
-- One-click `esptool` install via `pip` if it is missing
-- Automatic light / dark theme based on system appearance
-- Persistent flash counter for production runs
-- 100% open source — MIT license, no telemetry
+- **esptool:** o app procura sozinho em vários lugares. Se não encontrar, use o botão **Instalar** (precisa de Python) ou **Selecionar...** para apontar um `esptool.exe`.
+- **Python 3:** só é necessário para instalar o esptool pelo `pip`. Um `esptool.exe` standalone, como o do ESP-IDF ou do PlatformIO, funciona sem Python.
+- **Drivers USB:** placas com conversor CP210x ou CH340 podem precisar do driver do fabricante no Windows.
 
 ---
 
-## Download
+## Como gravar um ESP32 ou ESP8266
 
-| Platform | Installer |
-| -------- | --------- |
-| macOS (Apple Silicon & Intel) | [ESP.Flasher-1.0.4.dmg](https://github.com/AjinkyaGokhale/esp-flasher-java/releases/download/v1.0.4/ESP.Flasher-1.0.4.dmg) |
-| Windows | [ESP.Flasher-1.0.4.msi](https://github.com/AjinkyaGokhale/esp-flasher-java/releases/download/v1.0.4/ESP.Flasher-1.0.4.msi) |
+### Opção A — Firmware popular (download automático)
 
-**macOS:** Drag to Applications. If Gatekeeper blocks it:
-```bash
-xattr -cr "/Applications/ESP Flasher.app"
-```
+1. Em **Origem**, escolha um projeto do catálogo (ex.: **Tasmota** ou **Tasmota SML (ottelo9)**). A versão mais recente aparece ao lado.
+2. Escolha o **Chip**. A lista mostra só os chips que o projeto suporta.
+3. Escolha a **Porta** e a **Velocidade (baud)**.
+4. Clique em **Gravar**. O app baixa o binário de fábrica certo, guarda em `~/.esp-flasher/firmware-cache` e grava. Trocar de chip depois reaproveita o cache até sair uma versão nova.
 
-**Windows:** Run the `.msi`. If SmartScreen warns you, choose **More info → Run anyway**.
+Dica: clique em **Explorar projetos populares →** para ver todos os firmwares suportados.
 
-Both installers are currently unsigned.
+### Opção B — Binário próprio
 
----
+1. Em **Origem**, escolha **Binário próprio**.
+2. Clique em **Procurar...** e escolha o arquivo `.bin`.
+3. Escolha o **Chip**, ou deixe em `auto` para o `esptool` detectar.
+4. Escolha a **Porta**. Clique em **Atualizar** se a placa não aparecer.
+5. Escolha a **Velocidade**. `460800` é um valor seguro, e `921600` é mais rápido se o conversor USB-serial suportar.
+6. Defina o **Offset de gravação**: `0x0` para binários ESP32 unificados e para todo ESP8266, `0x1000` para só o bootloader do ESP32, `0x10000` para só a aplicação.
+7. Clique em **Gravar**.
 
-## Prerequisites
+### Modo Produção — gravar várias placas em sequência
 
-- **Python 3** — required by `esptool`. Install from [python.org](https://python.org) or Homebrew.
-- **`esptool`** — the app detects it and offers to install via `pip` on first launch.
-- **USB drivers** — boards with CP210x or CH340 USB-to-serial chips may need vendor drivers on Windows and older macOS.
-
----
-
-## How to Flash ESP32 or ESP8266 Firmware
-
-### Option A — Popular firmware (auto-download)
-
-1. Set **Source** to a catalogued project (e.g. **Tasmota** or **Tasmota SML (ottelo9)**). The latest version is shown next to the dropdown.
-2. Pick your **Chip** — the chip list is filtered to variants the project actually ships.
-3. Select the **Port** and **Baud Rate**.
-4. Click **Flash Once**. The app downloads the matching factory binary, caches it under `~/.esp-flasher/firmware-cache`, and flashes. Switching chips later reuses the cache until a new version is released.
-
-Tip: click **Explore Popular Projects →** next to the Source dropdown to see all supported firmware with logos and open their GitHub pages.
-
-### Option B — Custom binary
-
-1. Set **Source** to **Custom Binary**.
-2. Click **Browse...** and pick your firmware `.bin` file (ESPHome, WLED, MicroPython, Arduino, ESP-IDF, etc.).
-3. Select the **Chip** (or leave on `auto` to let `esptool` detect it).
-4. Select the **Port** — click **Refresh** if your board isn't listed.
-5. Choose a **Baud Rate** — `460800` is a safe default; `921600` is faster if your USB-serial chip supports it.
-6. Set the **Flash Offset**: `0x0` for merged ESP32 binaries and all ESP8266, `0x1000` for ESP32 bootloader-only, `0x10000` for application-only.
-7. Click **Flash Once**.
-
-### Factory Mode — Mass Flash ESP Boards
-
-For flashing the same firmware onto many boards in sequence (production runs, classroom kits, repair shops):
-
-1. Select firmware, chip, baud rate, and offset.
-2. Click **Factory Mode** — the app waits for a device.
-3. Plug in a board. It flashes automatically.
-4. Unplug when done (green bar + chime), plug in the next one.
-5. Click **Stop Factory** when finished. The **Flashed:** counter tracks your total.
+1. Escolha firmware, chip, velocidade e offset.
+2. Clique em **Modo Produção** e confirme. O app fica esperando um dispositivo.
+3. Conecte uma placa. A gravação começa sozinha.
+4. Ao terminar (barra verde e som), desconecte e conecte a próxima.
+5. Clique em **Parar Produção** quando acabar. O contador **gravados** mostra o total.
 
 ---
 
-## Supported Espressif Chips
+## Chips suportados
 
-`auto` (autodetect), **ESP32**, **ESP32-S2**, **ESP32-S3**, **ESP32-C3**, **ESP32-C6**, **ESP32-H2**, **ESP8266**.
+`auto` (detecção automática), **ESP32**, **ESP32-S2**, **ESP32-S3**, **ESP32-C3**, **ESP32-C6**, **ESP32-H2** e **ESP8266**.
 
-Works with NodeMCU, Wemos D1 Mini, ESP32 DevKitC, ESP32-S3 DevKitC, ESP32-C3 SuperMini, M5Stack, Seeed XIAO ESP32, LilyGO T-Display, Adafruit Feather ESP32, Sonoff Basic/Mini, and most generic Espressif modules.
+Funciona com NodeMCU, Wemos D1 Mini, ESP32 DevKitC, ESP32-S3 DevKitC, ESP32-C3 SuperMini, M5Stack, Seeed XIAO ESP32, LilyGO T-Display, Adafruit Feather ESP32, Sonoff Basic/Mini e a maioria dos módulos Espressif genéricos.
 
 ---
 
-## Building From Source
+## Compilar a partir do código
 
-Requires JDK 17+ and Maven (or the included `mvnw` wrapper).
+Requer JDK 21. O Maven vem embutido no projeto pelo `mvnw`.
 
 ```bash
-# Run from source
+# Rodar a partir do código
 ./mvnw clean package
-java -jar target/espflasher-1.0.4.jar
-
-# Build native installer (DMG on macOS, MSI on Windows)
-./mvnw clean package
-./mvnw jpackage:jpackage
-# Output: target/dist/
+java -jar target/espflasher-<versão>.jar
 ```
 
+Para gerar o instalador do Windows é preciso ter o [Inno Setup 6](https://jrsoftware.org/isinfo.php):
+
+```bash
+./mvnw clean package jpackage:jpackage
+ISCC.exe /DAppVersion=<versão> installer/esp-flasher.iss
+# Resultado: target/installer/ESP-Flasher-<versão>-setup.exe
+```
+
+### Publicar uma versão nova
+
+1. Altere `<version>` no `pom.xml` (ex.: `1.3.0`).
+2. Faça o commit e envie a tag: `git tag v1.3.0 && git push origin v1.3.0`.
+3. O GitHub Actions gera o instalador e publica a release. Os computadores com o app instalado são avisados na próxima abertura.
+
 ---
 
-## Troubleshooting
+## Solução de problemas
 
-| Symptom | Fix |
-| ------- | --- |
-| "Python not found" | Install Python 3 from [python.org](https://python.org) and restart. |
-| "esptool not found" | Click the status label, or run `python3 -m pip install esptool`. |
-| No ports listed | Install your board's USB-serial driver (CP210x, CH340, FTDI), then click **Refresh**. |
-| "Timed out connecting to ESP" | Hold BOOT while plugging in. Try a lower baud rate (e.g. `115200`). |
-| macOS: "App is damaged and can't be opened" | `xattr -cr "/Applications/ESP Flasher.app"` |
-| Firmware doesn't run after flash | Check the flash offset — many ESP32 images need `0x1000` or `0x10000`. |
+| Sintoma | Solução |
+| ------- | ------- |
+| esptool "Não encontrado" | Clique em **Instalar**, ou em **Selecionar...** para apontar um `esptool.exe`. Em Configurações > Caminhos, **Procurar todas as instalações** lista tudo o que existe no PC. |
+| Python "Não instalado" | Clique em **Instalar** (usa o `winget`) ou instale pelo [python.org](https://www.python.org/downloads/) e clique em **Verificar**. |
+| "[manual inválido]" ao lado do caminho | O caminho escolhido antes não existe mais. Use **Detecção automática** em Configurações > Caminhos. |
+| Nenhuma porta aparece | Instale o driver USB-serial da placa (CP210x, CH340, FTDI) e clique em **Atualizar**. |
+| "Timed out connecting to ESP" | Segure o botão BOOT ao conectar a placa. Tente uma velocidade menor (ex.: `115200`). |
+| Firmware não roda depois de gravar | Confira o offset. Muitas imagens ESP32 precisam de `0x1000` ou `0x10000`. |
 
-The full `esptool` output is visible in the log area — include it when filing an issue.
+A saída completa do `esptool` aparece na área de log. Inclua esse texto ao abrir um chamado.
 
 ---
 
-## Contributing
+## Contribuindo
 
-Open an [issue](../../issues) before starting work. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and conventions.
+Abra uma [issue](../../issues) antes de começar. Veja o [CONTRIBUTING.md](CONTRIBUTING.md) para configuração e convenções.
 
-## License
+## Licença
 
-[MIT](LICENSE) — © 2026 Ajinkya Gokhale
+[MIT](LICENSE) — © 2026 Ajinkya Gokhale. Adaptação para português e melhorias: Verin.
 
-## Credits
+## Créditos
 
+- [Ajinkya Gokhale](https://github.com/AjinkyaGokhale/esp-flasher-java) — projeto original
 - [Espressif Systems](https://github.com/espressif/esptool) — `esptool`
 - [Fazecast](https://github.com/Fazecast/jSerialComm) — `jSerialComm`
-- [OpenJFX](https://openjfx.io) — JavaFX runtime
-
----
-
-*Keywords: ESP32 flasher, ESP8266 flasher, esptool GUI, flash ESP32 firmware Mac, Tasmotizer alternative macOS, Tasmota flasher, ESPHome flash tool, WLED flasher, ESP32-C3 flasher, ESP32-S3 flasher, factory flash ESP32, mass flashing tool, ESP firmware upload tool.*
+- [OpenJFX](https://openjfx.io) — JavaFX
+- [Inno Setup](https://jrsoftware.org/isinfo.php) — instalador do Windows

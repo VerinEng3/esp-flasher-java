@@ -786,7 +786,14 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         info.setStyle("-fx-text-fill: #888888;");
 
         pane.getChildren().addAll(heading, info, newPrereqPanel(true));
-        return pane;
+
+        // A lista de instalações pode crescer: rolagem dentro do painel
+        ScrollPane scroll = new ScrollPane(pane);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        VBox wrapper = new VBox(scroll);
+        VBox.setVgrow(scroll, Priority.ALWAYS);
+        return wrapper;
     }
 
     private VBox buildLogFilePane(Stage dialog) {

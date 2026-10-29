@@ -7,7 +7,7 @@
 
 	<groupId>com.ajinkyagokhale</groupId>
 	<artifactId>espflasher</artifactId>
-	<version>1.1.0</version>
+	<version>1.2.0</version>
 	<packaging>jar</packaging>
 
 	<properties>
@@ -37,7 +37,10 @@
 				<os><family>windows</family></os>
 			</activation>
 			<properties>
-				<jpackage.type>MSI</jpackage.type>
+				<!-- No Windows o jpackage gera so a pasta do app; o instalador
+				     (com escolha "todos os usuarios" / "somente eu") vem do
+				     Inno Setup: installer/esp-flasher.iss -->
+				<jpackage.type>APP_IMAGE</jpackage.type>
 				<jpackage.icon>src/main/resources/icons/icon.ico</jpackage.icon>
 				<javafx.classifier>win</javafx.classifier>
 			</properties>
@@ -205,6 +208,31 @@
 				</executions>
 			</plugin>
 
+			<!-- Copia so o jar final para a entrada do jpackage -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>jpackage-input</id>
+						<phase>package</phase>
+						<goals><goal>copy-resources</goal></goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}/jpackage-input</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${project.build.directory}</directory>
+									<includes>
+										<include>espflasher-${project.version}.jar</include>
+									</includes>
+									<filtering>false</filtering>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 			<!-- SpotBugs static analysis -->
 			<plugin>
 				<groupId>com.github.spotbugs</groupId>
@@ -238,13 +266,7 @@
 					<type>${jpackage.type}</type>
 					<destination>target/dist</destination>
 					<icon>${jpackage.icon}</icon>
-					<input>target</input>
-					<winMenu>true</winMenu>
-					<winShortcut>true</winShortcut>
-					<winDirChooser>true</winDirChooser>
-					<winMenuGroup>ESP Flasher</winMenuGroup>
-					<!-- UUID fixo: versoes novas do MSI substituem a anterior em vez de instalar lado a lado -->
-					<winUpgradeUuid>6af7c35b-8d25-49d1-8ba8-20c13eb5bc54</winUpgradeUuid>
+					<input>target/jpackage-input</input>
 				</configuration>
 			</plugin>
 		</plugins>

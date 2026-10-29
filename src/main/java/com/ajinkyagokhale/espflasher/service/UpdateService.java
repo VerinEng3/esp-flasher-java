@@ -155,7 +155,8 @@ public class UpdateService {
     private String assetExtension() {
         String os = System.getProperty("os.name", "").toLowerCase();
         if (os.contains("mac")) return ".dmg";
-        if (os.contains("win")) return ".msi";
+        // Instalador Inno Setup (installer/esp-flasher.iss): ESP-Flasher-<versão>-setup.exe
+        if (os.contains("win")) return "-setup.exe";
         return null;
     }
 }

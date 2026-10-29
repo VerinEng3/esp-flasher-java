@@ -113,7 +113,81 @@ public class PrereqPanel extends VBox {
         footer.getChildren().add(recheckBtn);
 
         getChildren().addAll(grid, footer);
+        if (showAutoButton) getChildren().add(buildInstallsSection());
         refresh();
+    }
+
+    // ── Lista de todas as instalações (Configurações > Caminhos) ──
+
+    private final VBox installsList = new VBox(4);
+    private final Button scanBtn = new Button("Procurar todas as instalações");
+
+    private VBox buildInstallsSection() {
+        Label title = new Label("Instalações do esptool neste computador");
+        title.setStyle("-fx-font-weight: bold;");
+        Label hint = new Label("Procura no Python, PATH, ESP-IDF, PlatformIO, Arduino IDE e pipx. "
+                + "Clique em \"Usar\" para escolher qual será usada na gravação.");
+        hint.setWrapText(true);
+        hint.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
+
+        scanBtn.setMinWidth(Region.USE_PREF_SIZE);
+        scanBtn.setOnAction(e -> scanInstalls());
+
+        HBox header = new HBox(8, title);
+        header.setAlignment(Pos.CENTER_LEFT);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        header.getChildren().addAll(spacer, scanBtn);
+
+        VBox box = new VBox(6, new javafx.scene.control.Separator(), header, hint, installsList);
+        box.setPadding(new Insets(6, 0, 0, 0));
+        return box;
+    }
+
+    private void scanInstalls() {
+        scanBtn.setDisable(true);
+        installsList.getChildren().setAll(new Label("Procurando..."));
+        Thread t = new Thread(() -> {
+            java.util.List<PrereqChecker.EsptoolInstall> all = checker.findAllEsptools();
+            Platform.runLater(() -> {
+                scanBtn.setDisable(false);
+                showInstalls(all);
+            });
+        }, "esptool-scan");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private void showInstalls(java.util.List<PrereqChecker.EsptoolInstall> all) {
+        installsList.getChildren().clear();
+        if (all.isEmpty()) {
+            Label none = new Label("Nenhuma instalação do esptool encontrada.");
+            none.setStyle("-fx-text-fill: " + ERR_COLOR + ";");
+            installsList.getChildren().add(none);
+            return;
+        }
+        PrereqChecker.EsptoolInstall current = checker.getEsptool();
+        for (PrereqChecker.EsptoolInstall inst : all) {
+            boolean inUse = current != null && current.location().equalsIgnoreCase(inst.location());
+            Label source = new Label("[" + inst.source() + "]");
+            source.setMinWidth(Region.USE_PREF_SIZE);
+            source.setStyle("-fx-font-size: 11px; -fx-text-fill: #888888;");
+            Label loc = pathLabel();
+            loc.setText(inst.location() + "  (v" + inst.version() + ")");
+            loc.setTooltip(new Tooltip(inst.location()));
+            HBox.setHgrow(loc, Priority.ALWAYS);
+            Button use = new Button(inUse ? "Em uso" : "Usar");
+            use.setMinWidth(Region.USE_PREF_SIZE);
+            use.setDisable(inUse);
+            use.setOnAction(e -> {
+                PrereqChecker.useInstall(inst);
+                installsList.getChildren().clear();
+                recheck();
+            });
+            HBox row = new HBox(8, source, loc, use);
+            row.setAlignment(Pos.CENTER_LEFT);
+            installsList.getChildren().add(row);
+        }
     }
 
     // ── Estado ──────────────────────────────────────────────────
@@ -138,15 +212,21 @@ public class PrereqPanel extends VBox {
         String customPython = PrereqChecker.getCustomPythonPath();
         if (checker.isPythonFound()) {
             String text = checker.getPythonExe() + "  (" + checker.getPythonVersion() + ")";
-            if (!customPython.isEmpty()) text += "  [manual]";
-            setState(pythonIcon, pythonPath, true, text, checker.getPythonExe());
+            String tip = checker.getPythonExe();
+            if (checker.isCustomPythonInvalid()) {
+                text += "  [manual inválido, usando detecção automática]";
+                tip += "\nCaminho manual inválido: " + customPython;
+            } else if (!customPython.isEmpty() && customPython.equalsIgnoreCase(checker.getPythonExe())) {
+                text += "  [manual]";
+            }
+            setState(pythonIcon, pythonPath, true, text, tip);
             show(pythonInstall, false);
-        } else if (!customPython.isEmpty()) {
+        } else if (checker.isCustomPythonInvalid()) {
             setState(pythonIcon, pythonPath, false, "Inválido: " + customPython, customPython);
             show(pythonInstall, true);
         } else if (checker.isReady()) {
             // esptool standalone funciona sem Python
-            setState(pythonIcon, pythonPath, null, "Não encontrado (não é necessário para o esptool escolhido)", null);
+            setState(pythonIcon, pythonPath, null, "Não encontrado (não é necessário para o esptool encontrado)", null);
             show(pythonInstall, true);
         } else {
             setState(pythonIcon, pythonPath, false, "Não instalado", null);
@@ -155,16 +235,22 @@ public class PrereqPanel extends VBox {
 
         // esptool
         String customEsptool = PrereqChecker.getCustomEsptoolPath();
-        if (checker.isReady()) {
-            String where = checker.getEsptoolLocation() != null ? checker.getEsptoolLocation() : "";
-            String ver = checker.getEsptoolVersion() != null ? "  (v" + checker.getEsptoolVersion() + ")" : "";
-            String text = where + ver + (checker.isEsptoolFromCustomPath() ? "  [manual]" : "");
-            setState(esptoolIcon, esptoolPath, true, text, where);
+        PrereqChecker.EsptoolInstall es = checker.getEsptool();
+        if (es != null) {
+            String ver = es.version() != null ? "  (v" + es.version() + ")" : "";
+            String tag = checker.isEsptoolFromCustomPath() ? "manual" : es.source();
+            String text = es.location() + ver + "  [" + tag + "]";
+            String tip = es.location() + "\nComando: " + String.join(" ", es.command());
+            if (checker.isCustomEsptoolInvalid()) {
+                text += "  [manual inválido]";
+                tip += "\nCaminho manual inválido: " + customEsptool;
+            }
+            setState(esptoolIcon, esptoolPath, true, text, tip);
             show(esptoolInstall, false);
         } else {
-            String text = !customEsptool.isEmpty()
+            String text = checker.isCustomEsptoolInvalid()
                     ? "Inválido: " + customEsptool
-                    : "Não instalado";
+                    : "Não encontrado";
             setState(esptoolIcon, esptoolPath, false, text, customEsptool.isEmpty() ? null : customEsptool);
             show(esptoolInstall, true);
             esptoolInstall.setDisable(!checker.isPythonFound());
