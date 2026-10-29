@@ -129,7 +129,14 @@ public class UpdateService {
             Files.deleteIfExists(target);
             return false;
         }
-        Desktop.getDesktop().open(target.toFile());
+        if (target.toString().endsWith("-setup.exe")) {
+            // Instalador Inno Setup: atualiza sem perguntas, mantém o modo de instalação
+            // anterior e reabre o app ao terminar (/UPDATE=1, ver installer/esp-flasher.iss)
+            new ProcessBuilder(target.toString(), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
+                    "/CLOSEAPPLICATIONS", "/UPDATE=1").start();
+        } else {
+            Desktop.getDesktop().open(target.toFile());
+        }
         System.exit(0); // intentional: installer takes over, JVM must exit
         return true;
     }

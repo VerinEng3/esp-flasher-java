@@ -782,10 +782,10 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         Label heading = new Label("Python e esptool");
         heading.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
-        Label info = new Label("O ESP Flasher procura o Python e o esptool automaticamente. "
-                + "Use \"Instalar\" para instalar o que faltar, ou \"Selecionar...\" para "
-                + "apontar um caminho manualmente. Um esptool.exe standalone (sem Python) "
-                + "também funciona.");
+        Label info = new Label("O ESP Flasher já vem com um Python portátil e o esptool, "
+                + "isolados do resto do computador, e usa esse esptool por padrão. "
+                + "Use \"Selecionar...\" ou a lista abaixo para usar outro esptool; "
+                + "\"Restaurar padrão\" volta ao embutido.");
         info.setWrapText(true);
         info.setStyle("-fx-text-fill: #888888;");
 
@@ -1192,6 +1192,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         alert.setContentText("Instalada: " + current + "\nNova: " + release.version()
                 + "\n\nÉ preciso atualizar para continuar.");
         alert.getButtonTypes().setAll(updateNow, quit);
+        alert.initOwner(mainStage);
         alert.initModality(Modality.APPLICATION_MODAL);
 
         Optional<ButtonType> choice = alert.showAndWait();
@@ -1223,6 +1224,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         dialog.setHeaderText("Atualizando para " + release.version());
         dialog.getDialogPane().setContent(box);
         dialog.getButtonTypes().setAll(cancelType);
+        dialog.initOwner(mainStage);
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.setOnHidden(e -> cancelled.set(true));
 
@@ -1240,6 +1242,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
                 Platform.runLater(() -> {
                     dialog.close();
                     Alert error = new Alert(Alert.AlertType.ERROR);
+                    error.initOwner(mainStage);
                     error.setTitle("Falha na atualização");
                     error.setHeaderText("Não foi possível baixar a atualização");
                     error.setContentText(e.getMessage());

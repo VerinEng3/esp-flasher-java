@@ -1,8 +1,12 @@
 ; Instalador do ESP Flasher (Inno Setup 6)
 ;
 ; Gerar:
-;   mvnw package jpackage:jpackage        (cria target\dist\ESP Flasher)
-;   ISCC.exe /DAppVersion=1.2.0 installer\esp-flasher.iss
+;   mvnw package jpackage:jpackage                   (cria target\dist\ESP Flasher)
+;   powershell -File installer\prepare-python.ps1    (cria target\python-embed\python)
+;   ISCC.exe /DAppVersion=1.3.0 installer\esp-flasher.iss
+;
+; O instalador leva um Python portátil com o esptool na pasta {app}\python,
+; isolado do sistema: não usa nem altera outro Python da máquina.
 ;
 ; Ao abrir, o instalador pergunta se a instalação é para todos os usuários
 ; (Program Files, pede administrador) ou só para o usuário atual
@@ -13,6 +17,9 @@
 #endif
 #ifndef SourceDir
   #define SourceDir "..\target\dist\ESP Flasher"
+#endif
+#ifndef PythonDir
+  #define PythonDir "..\target\python-embed\python"
 #endif
 
 #define AppName "ESP Flasher"
@@ -64,9 +71,16 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; Remove arquivos da versão anterior (o Java embutido muda entre versões)
 Type: filesandordirs; Name: "{app}\app"
 Type: filesandordirs; Name: "{app}\runtime"
+Type: filesandordirs; Name: "{app}\python"
+
+[UninstallDelete]
+; Arquivos que o Python cria ao rodar (__pycache__)
+Type: filesandordirs; Name: "{app}\python"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Python portátil + esptool (installer\prepare-python.ps1)
+Source: "{#PythonDir}\*"; DestDir: "{app}\python"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
@@ -74,3 +88,11 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+; Atualização automática (o app roda o setup com /SILENT /UPDATE=1): reabre o app no fim
+Filename: "{app}\{#AppExe}"; Flags: nowait skipifnotsilent runasoriginaluser; Check: IsAutoUpdate
+
+[Code]
+function IsAutoUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:UPDATE|0}') = '1';
+end;

@@ -57,7 +57,7 @@ public class PrereqPanel extends VBox {
     private final Button esptoolSelect = new Button("Selecionar...");
 
     private final Button recheckBtn = new Button("↻ Verificar");
-    private final Button autoBtn = new Button("Detecção automática");
+    private final Button autoBtn = new Button("Restaurar padrão");
 
     private static final java.util.concurrent.atomic.AtomicBoolean CHECKING =
             new java.util.concurrent.atomic.AtomicBoolean(false);
@@ -105,7 +105,8 @@ public class PrereqPanel extends VBox {
         pythonSelect.setTooltip(new Tooltip("Escolher manualmente o python.exe a ser usado"));
         esptoolSelect.setTooltip(new Tooltip(
                 "Escolher manualmente o esptool (esptool.exe standalone ou esptool.py)"));
-        autoBtn.setTooltip(new Tooltip("Esquecer os caminhos escolhidos manualmente e procurar de novo"));
+        autoBtn.setTooltip(new Tooltip("Esquecer os caminhos escolhidos manualmente e voltar ao "
+                + "esptool embutido (ou à detecção automática, se não houver embutido)"));
 
         HBox footer = new HBox(8);
         footer.setAlignment(Pos.CENTER_RIGHT);
@@ -125,8 +126,9 @@ public class PrereqPanel extends VBox {
     private VBox buildInstallsSection() {
         Label title = new Label("Instalações do esptool neste computador");
         title.setStyle("-fx-font-weight: bold;");
-        Label hint = new Label("Procura no Python, PATH, ESP-IDF, PlatformIO, Arduino IDE e pipx. "
-                + "Clique em \"Usar\" para escolher qual será usada na gravação.");
+        Label hint = new Label("Mostra o esptool embutido e os encontrados no Python, PATH, ESP-IDF, "
+                + "PlatformIO, Arduino IDE e pipx. Clique em \"Usar\" para escolher qual será usado "
+                + "na gravação; \"Restaurar padrão\" volta ao embutido.");
         hint.setWrapText(true);
         hint.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
 
@@ -213,7 +215,11 @@ public class PrereqPanel extends VBox {
         if (checker.isPythonFound()) {
             String text = checker.getPythonExe() + "  (" + checker.getPythonVersion() + ")";
             String tip = checker.getPythonExe();
-            if (checker.isCustomPythonInvalid()) {
+            if (checker.isPythonBundled()) {
+                text += "  [embutido]";
+                tip += "\nPython portátil que vem com o ESP Flasher, isolado do sistema";
+                if (checker.isCustomPythonInvalid()) text += "  [manual inválido]";
+            } else if (checker.isCustomPythonInvalid()) {
                 text += "  [manual inválido, usando detecção automática]";
                 tip += "\nCaminho manual inválido: " + customPython;
             } else if (!customPython.isEmpty() && customPython.equalsIgnoreCase(checker.getPythonExe())) {

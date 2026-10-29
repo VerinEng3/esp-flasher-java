@@ -11,12 +11,12 @@ Este repositório é o **fork em português da Verin**, voltado para gravação 
 ## O que este fork acrescenta
 
 - **Interface toda em português (pt-BR).**
-- **Painel de pré-requisitos na tela principal.** Mostra o caminho e a versão do Python e do esptool em uso, ou avisa que não estão instalados.
-- **Botões "Instalar" e "Selecionar..." ao lado de cada item.** "Instalar" instala o Python 3.13 (via `winget`, sem administrador) ou o esptool (via `pip`). "Selecionar..." aponta um caminho manualmente.
-- **Detecção ampla do esptool.** Procura no Python (launcher `py`, PATH, pastas padrão, conda), no PATH, no ESP-IDF, no PlatformIO, na Arduino IDE e no pipx, e escolhe a versão mais recente. Um caminho manual inválido não impede a busca automática.
+- **Python e esptool embutidos no instalador.** O app traz um Python 3.13.13 portátil com o esptool 5.6.0, isolados do resto do computador: não dependem de nenhum Python da máquina e não alteram nada nela. É esse esptool que o app usa por padrão.
+- **Painel de pré-requisitos na tela principal.** Mostra o caminho e a versão do Python e do esptool em uso.
+- **Outro esptool, se precisar.** "Selecionar..." aponta um esptool manualmente, e Configurações > Caminhos lista os encontrados no PC (Python, PATH, ESP-IDF, PlatformIO, Arduino IDE, pipx) com um botão "Usar". "Restaurar padrão" volta ao embutido.
 - **Lista de todas as instalações** em Configurações > Caminhos, com um botão "Usar" em cada uma.
 - **Instalador para Windows com escolha de modo:** para todos os usuários ou somente para o usuário atual.
-- **Atualização automática a partir deste fork.**
+- **Atualização automática a partir deste fork.** Ao abrir, o app avisa quando há versão nova, instala sem perguntas e reabre sozinho.
 
 ---
 
@@ -51,8 +51,7 @@ Ao instalar uma versão nova por cima, o instalador atualiza a existente e mant�
 
 ## Pré-requisitos
 
-- **esptool:** o app procura sozinho em vários lugares. Se não encontrar, use o botão **Instalar** (precisa de Python) ou **Selecionar...** para apontar um `esptool.exe`.
-- **Python 3:** só é necessário para instalar o esptool pelo `pip`. Um `esptool.exe` standalone, como o do ESP-IDF ou do PlatformIO, funciona sem Python.
+- **Python e esptool:** nenhum. Os dois já vêm no instalador.
 - **Drivers USB:** placas com conversor CP210x ou CH340 podem precisar do driver do fabricante no Windows.
 
 ---
@@ -106,10 +105,11 @@ Requer JDK 21. O Maven vem embutido no projeto pelo `mvnw`.
 java -jar target/espflasher-<versão>.jar
 ```
 
-Para gerar o instalador do Windows é preciso ter o [Inno Setup 6](https://jrsoftware.org/isinfo.php):
+Para gerar o instalador do Windows é preciso ter o [Inno Setup 6](https://jrsoftware.org/isinfo.php) e o Python 3.13 64-bit (só para montar o Python embutido):
 
 ```bash
 ./mvnw clean package jpackage:jpackage
+powershell -ExecutionPolicy Bypass -File installer/prepare-python.ps1
 ISCC.exe /DAppVersion=<versão> installer/esp-flasher.iss
 # Resultado: target/installer/ESP-Flasher-<versão>-setup.exe
 ```
@@ -120,15 +120,18 @@ ISCC.exe /DAppVersion=<versão> installer/esp-flasher.iss
 2. Faça o commit e envie a tag: `git tag v1.3.0 && git push origin v1.3.0`.
 3. O GitHub Actions gera o instalador e publica a release. Os computadores com o app instalado são avisados na próxima abertura.
 
+### Versões do Python e do esptool embutidos
+
+Ficam em `installer/prepare-python.ps1` (Python) e `installer/python/requirements.txt` (esptool e dependências, com hash de cada pacote). Para trocar de versão, altere esses dois arquivos e publique uma versão nova.
+
 ---
 
 ## Solução de problemas
 
 | Sintoma | Solução |
 | ------- | ------- |
-| esptool "Não encontrado" | Clique em **Instalar**, ou em **Selecionar...** para apontar um `esptool.exe`. Em Configurações > Caminhos, **Procurar todas as instalações** lista tudo o que existe no PC. |
-| Python "Não instalado" | Clique em **Instalar** (usa o `winget`) ou instale pelo [python.org](https://www.python.org/downloads/) e clique em **Verificar**. |
-| "[manual inválido]" ao lado do caminho | O caminho escolhido antes não existe mais. Use **Detecção automática** em Configurações > Caminhos. |
+| esptool sem "[Embutido]" ou "Não encontrado" | Clique em **Restaurar padrão** em Configurações > Caminhos. Se continuar, reinstale o ESP Flasher. |
+| "[manual inválido]" ao lado do caminho | O caminho escolhido antes não existe mais. Use **Restaurar padrão** em Configurações > Caminhos. |
 | Nenhuma porta aparece | Instale o driver USB-serial da placa (CP210x, CH340, FTDI) e clique em **Atualizar**. |
 | "Timed out connecting to ESP" ou erro no meio da gravação | Segure o botão BOOT ao conectar a placa. Se o conversor USB-serial não aguentar `921600`, escolha `460800` ou `115200`. |
 | Firmware não roda depois de gravar | Confira o offset. Muitas imagens ESP32 precisam de `0x1000` ou `0x10000`. |
