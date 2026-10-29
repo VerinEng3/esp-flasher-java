@@ -18,7 +18,7 @@ Baixe o `.msi` na página de [Releases](https://github.com/VerinEng3/esp-flasher
 
 1. Altere `<version>` no `pom.xml` (ex.: `1.2.0`).
 2. Faça commit e crie a tag correspondente: `git tag v1.2.0 && git push origin v1.2.0`.
-3. O GitHub Actions gera o `.msi` (Windows) e o `.dmg` (macOS) e publica a release.
+3. O GitHub Actions gera o `.msi` (Windows) e publica a release.
 
 ---
 
