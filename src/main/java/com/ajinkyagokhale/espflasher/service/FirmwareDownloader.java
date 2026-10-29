@@ -251,7 +251,7 @@ public class FirmwareDownloader {
         );
 
         if (response.statusCode() >= 400) {
-            throw new Exception("HTTP " + response.statusCode() + " downloading " + downloadUrl);
+            throw new Exception("HTTP " + response.statusCode() + " ao baixar " + downloadUrl);
         }
 
         long totalBytes = response.headers()
@@ -315,8 +315,8 @@ public class FirmwareDownloader {
                     Files.readAllBytes(Paths.get(zipPath)),
                     StandardCharsets.UTF_8
             );
-            throw new Exception("Downloaded file is too small to be a zip ("
-                    + size + " bytes). Content: " + preview.substring(0, Math.min(200, preview.length())));
+            throw new Exception("O arquivo baixado é pequeno demais para ser um zip ("
+                    + size + " bytes). Conteúdo: " + preview.substring(0, Math.min(200, preview.length())));
         }
 
         Files.createDirectories(Paths.get(extractDir));
@@ -347,8 +347,8 @@ public class FirmwareDownloader {
 
         log("[download] zip entries: " + entries);
         boolean requireFactory = zipName.toLowerCase().contains("ottelo");
-        throw new Exception((requireFactory ? "No factory .bin" : "No .bin")
-                + " for chip '" + chip + "' inside " + zipName + ". Entries: " + entries);
+        throw new Exception((requireFactory ? "Nenhum .bin de fábrica" : "Nenhum .bin")
+                + " para o chip '" + chip + "' dentro de " + zipName + ". Arquivos: " + entries);
     }
 
     /**

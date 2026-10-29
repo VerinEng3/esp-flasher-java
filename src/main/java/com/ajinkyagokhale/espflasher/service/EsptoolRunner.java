@@ -22,7 +22,7 @@ public class EsptoolRunner {
 
         Thread thread = new Thread(() -> {
 
-            List<String> command = new ArrayList<>(tokenize(config.esptoolCmd()));
+            List<String> command = new ArrayList<>(config.esptoolCommand());
             command.add("--chip");
             command.add(config.chip());
             command.add("--port");
@@ -56,16 +56,16 @@ public class EsptoolRunner {
                 int exitCode = currentProcess.waitFor();
 
                 if (isCancelled) {
-                    listener.onComplete(false, "Cancelled by user.");
+                    listener.onComplete(false, "Cancelado pelo usuário.");
                 } else if (exitCode == 0) {
                     listener.onProgress(100);
-                    listener.onComplete(true, "Flash successful!");
+                    listener.onComplete(true, "Gravação concluída com sucesso!");
                 } else {
-                    listener.onComplete(false, "esptool failed with exit code: " + exitCode);
+                    listener.onComplete(false, "Falha no esptool (código de saída " + exitCode + ").");
                 }
 
             } catch (IOException | InterruptedException e) {
-                listener.onComplete(false, "Error: " + e.getMessage());
+                listener.onComplete(false, "Erro: " + e.getMessage());
             }
 
         });
@@ -82,26 +82,5 @@ public class EsptoolRunner {
         }
     }
 
-    // Tokenize a command string, respecting double-quoted segments so paths with spaces work.
-    static List<String> tokenize(String cmd) {
-        List<String> out = new ArrayList<>();
-        StringBuilder cur = new StringBuilder();
-        boolean inQuotes = false;
-        for (int i = 0; i < cmd.length(); i++) {
-            char c = cmd.charAt(i);
-            if (c == '"') {
-                inQuotes = !inQuotes;
-            } else if (c == ' ' && !inQuotes) {
-                if (!cur.isEmpty()) {
-                    out.add(cur.toString());
-                    cur.setLength(0);
-                }
-            } else {
-                cur.append(c);
-            }
-        }
-        if (!cur.isEmpty()) out.add(cur.toString());
-        return out;
-    }
 }
 

@@ -90,13 +90,19 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     private Button toolbarFlasherBtn;
     private Button toolbarSettingsBtn;
 
+    // Painéis de pré-requisitos (tela principal + Configurações > Caminhos)
+    private final List<PrereqPanel> prereqPanels = new ArrayList<>();
+    private Stage mainStage;
+
 
     // ════════════════════════════════════════════════════════
     // Application lifecycle
     // ════════════════════════════════════════════════════════
 
     @Override
+    @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "A janela principal é guardada para abrir diálogos")
     public void start(Stage primaryStage) throws Exception {
+        mainStage = primaryStage;
         checkForUpdates();
 
 
@@ -105,10 +111,10 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         initSound();
 
         primaryStage.setTitle("ESP Flasher");
-        primaryStage.setWidth(750);
-        primaryStage.setHeight(650);
-        primaryStage.setMinWidth(750);
-        primaryStage.setMinHeight(650);
+        primaryStage.setWidth(780);
+        primaryStage.setHeight(740);
+        primaryStage.setMinWidth(780);
+        primaryStage.setMinHeight(680);
 
         VBox root = new VBox(10);
         root.setPadding(new Insets(20));
@@ -117,6 +123,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         flasherView = new VBox(10);
         VBox.setVgrow(flasherView, Priority.ALWAYS);
 
+        flasherView.getChildren().add(newPrereqPanel(false));
         buildConfigCard(primaryStage, flasherView);
         buildButtonRow(primaryStage, flasherView);
         addProgressBar(flasherView);
@@ -153,8 +160,8 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     }
 
     private HBox buildToolbar() {
-        toolbarFlasherBtn = new Button("Flasher");
-        toolbarSettingsBtn = new Button("Settings");
+        toolbarFlasherBtn = new Button("Gravador");
+        toolbarSettingsBtn = new Button("Configurações");
 
         toolbarFlasherBtn.getStyleClass().addAll("toolbar-btn", "toolbar-btn-active");
         toolbarSettingsBtn.getStyleClass().add("toolbar-btn");
@@ -199,7 +206,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     }
 
     private void buildFooter(VBox root) {
-        Label footer = new Label("Built with ❤ by Ajinkya Gokhale");
+        Label footer = new Label("Criado com ❤ por Ajinkya Gokhale  •  Versão pt-BR: Verin");
         footer.setMaxWidth(Double.MAX_VALUE);
         footer.setAlignment(Pos.CENTER);
         footer.getStyleClass().add("footer");
@@ -255,26 +262,26 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         // Progress + status
         progressBar = new ProgressBar(0);
         progressBar.setMaxWidth(Double.MAX_VALUE);
-        statusLabel = new Label("Ready.");
+        statusLabel = new Label("Pronto.");
         root.getChildren().addAll(progressBar, statusLabel);
     }
 
     private void buildButtonRow(Stage primaryStage, VBox root) {
 
         // Action buttons + flash counter
-        flashButton = new Button("Flash Once");
+        flashButton = new Button("Gravar");
         flashButton.setOnAction(e -> startFlash(null));
 
-        factoryButton = new Button("Factory Mode");
+        factoryButton = new Button("Modo Produção");
         factoryButton.setOnAction(e -> startFactoryMode());
 
-        stopButton = new Button("Stop");
+        stopButton = new Button("Parar");
         stopButton.setOnAction(e -> stopAll());
         stopButton.setDisable(true);
 
         flashCountNumber = new Label("0");
         flashCountNumber.getStyleClass().add("flash-count-number");
-        Label flashCountSub = new Label("flashed");
+        Label flashCountSub = new Label("gravados");
         flashCountSub.getStyleClass().add("flash-count-sub");
         flashCountLabel = new Label();
         flashCountLabel.getStyleClass().add("flash-count-card");
@@ -292,11 +299,11 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
         // ── Firmware source selector ────────────────────────
         ComboBox<String> firmwareSourceCombo = new ComboBox<>();
-        firmwareSourceCombo.getItems().add("Custom Binary");
+        firmwareSourceCombo.getItems().add("Binário próprio");
         FirmwareCatalog.getCatalog().forEach(f ->
                 firmwareSourceCombo.getItems().add(f.getName())
         );
-        firmwareSourceCombo.setValue("Custom Binary");
+        firmwareSourceCombo.setValue("Binário próprio");
 
         // ── Inline firmware description (next to Source dropdown) ──
         firmwareDescLabel = new Label("");
@@ -305,20 +312,20 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         firmwareDescLabel.setWrapText(true);
         HBox.setHgrow(firmwareDescLabel, Priority.ALWAYS);
 
-        Button exploreBtn = new Button("Explore Popular Projects →");
+        Button exploreBtn = new Button("Explorar projetos populares →");
         exploreBtn.getStyleClass().add("link-button");
         exploreBtn.setOnAction(e -> showView(exploreView));
 
-        HBox sourceRow = new HBox(10, new Label("Source"), firmwareSourceCombo, firmwareDescLabel, exploreBtn);
+        HBox sourceRow = new HBox(10, new Label("Origem"), firmwareSourceCombo, firmwareDescLabel, exploreBtn);
         sourceRow.setAlignment(Pos.CENTER_LEFT);
 
         // ── Custom binary file row ──────────────────────────
         binPathField = new TextField();
-        binPathField.setPromptText("Select firmware .bin file...");
+        binPathField.setPromptText("Selecione o arquivo .bin do firmware...");
         binPathField.setEditable(false);
         HBox.setHgrow(binPathField, Priority.ALWAYS);
 
-        Button browseButton = new Button("Browse...");
+        Button browseButton = new Button("Procurar...");
         browseButton.setOnAction(e -> browseBin(primaryStage));
 
         HBox fileRow = new HBox(10, new Label("Firmware"), binPathField, browseButton);
@@ -335,7 +342,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         // ── Source toggle behavior ──────────────────────────
         firmwareSourceCombo.setOnAction(e -> {
             String selected = firmwareSourceCombo.getValue();
-            boolean isCustom = selected.equals("Custom Binary");
+            boolean isCustom = selected.equals("Binário próprio");
 
             fileRow.setVisible(isCustom);
             fileRow.setManaged(isCustom);
@@ -360,18 +367,18 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
             if (def != null) {
                 firmwareDescLabel.setText(def.getDescription());
-                firmwareVersionLabel.setText("Fetching version...");
+                firmwareVersionLabel.setText("Buscando versão...");
                 new Thread(() -> {
                     boolean online = firmwareDownloader.isOnline();
                     if (!online) {
                         Platform.runLater(() ->
-                                firmwareVersionLabel.setText("⚠ No internet connection")
+                                firmwareVersionLabel.setText("⚠ Sem conexão com a internet")
                         );
                         return;
                     }
                     String version = firmwareDownloader.fetchLatestVersion(def);
                     Platform.runLater(() ->
-                            firmwareVersionLabel.setText("Latest: v" + version)
+                            firmwareVersionLabel.setText(("unknown".equals(version) ? "Versão mais recente: desconhecida" : "Versão mais recente: v" + version))
                     );
                 }).start();
             }
@@ -390,24 +397,24 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         // ── Port row ────────────────────────────────────────
         portCombo = new ComboBox<>();
         portCombo.setEditable(true);
-        portCombo.setPromptText("Select port...");
+        portCombo.setPromptText("Selecione a porta...");
         refreshPorts();
-        Button refreshButton = new Button("Refresh");
+        Button refreshButton = new Button("Atualizar");
         refreshButton.setOnAction(e -> refreshPorts());
-        HBox portRow = new HBox(10, new Label("Port"), portCombo, refreshButton);
+        HBox portRow = new HBox(10, new Label("Porta"), portCombo, refreshButton);
         portRow.setAlignment(Pos.CENTER_LEFT);
 
         // ── Baud row ────────────────────────────────────────
         baudCombo = new ComboBox<>();
         baudCombo.getItems().addAll("460800", "921600", "230400", "115200");
         baudCombo.setValue("460800");
-        HBox baudRow = new HBox(10, new Label("Baud Rate"), baudCombo);
+        HBox baudRow = new HBox(10, new Label("Velocidade (baud)"), baudCombo);
         baudRow.setAlignment(Pos.CENTER_LEFT);
 
         // ── Offset row ──────────────────────────────────────
         flashOffsetField = new TextField("0x0");
         flashOffsetField.setPrefWidth(120);
-        HBox offsetRow = new HBox(10, new Label("Flash Offset"), flashOffsetField);
+        HBox offsetRow = new HBox(10, new Label("Offset de gravação"), flashOffsetField);
         offsetRow.setAlignment(Pos.CENTER_LEFT);
 
         // ── Config card ─────────────────────────────────────
@@ -464,9 +471,8 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
         Platform.runLater(() -> {
             statusLabel.setText(message);
-            flashButton.setDisable(false);
-            factoryButton.setDisable(false);
             stopButton.setDisable(true);
+            updateReadyState(false);
             if (success) {
                 flashCount++;
                 flashCountNumber.setText(String.valueOf(flashCount));
@@ -487,7 +493,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
             }
 
             if (isFactoryMode) {
-                statusLabel.setText("Waiting for next device...");
+                statusLabel.setText("Aguardando o próximo dispositivo...");
                 statusLabel.setStyle("-fx-text-fill: #66bb6a;");
                 flashButton.setDisable(true);
                 stopButton.setDisable(false);
@@ -498,7 +504,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     @Override
     public void onNewPort(String portName) {
         Platform.runLater(() -> {
-            statusLabel.setText("Device detected: " + portName + " — flashing...");
+            statusLabel.setText("Dispositivo detectado: " + portName + " — gravando...");
             startFlash(portName);
         });
     }
@@ -510,13 +516,13 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
     private void startFlash(String overridePort) {
         if (!prereqChecker.isReady()) {
-            statusLabel.setText("esptool not found. Please install it first.");
+            statusLabel.setText("esptool não encontrado. Instale ou selecione o esptool acima.");
             return;
         }
 
         String port = overridePort != null ? overridePort : portCombo.getValue();
         if (port == null || port.isEmpty()) {
-            statusLabel.setText("Please select a port.");
+            statusLabel.setText("Selecione uma porta.");
             return;
         }
 
@@ -527,7 +533,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
         String binPath = binPathField.getText();
         if (binPath.isEmpty()) {
-            statusLabel.setText("Please select a firmware file.");
+            statusLabel.setText("Selecione um arquivo de firmware.");
             return;
         }
 
@@ -541,14 +547,14 @@ public class FlasherApp extends Application implements FlashListener, PortListen
                 port,
                 binPath,
                 flashOffsetField.getText(),
-                prereqChecker.getEsptoolCmd()
+                prereqChecker.getEsptoolCommand()
         );
 
         flashButton.setDisable(true);
         stopButton.setDisable(false);
         progressBar.setStyle("");
         progressBar.setProgress(0);
-        statusLabel.setText("Flashing...");
+        statusLabel.setText("Gravando...");
 
         currentFlashPort = port;
         currentFlashMac = null;
@@ -560,13 +566,13 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         stopButton.setDisable(false);
         progressBar.setStyle("");
         progressBar.setProgress(0);
-        statusLabel.setText("Downloading " + fw.getName() + "...");
+        statusLabel.setText("Baixando " + fw.getName() + "...");
 
         String chip = chipCombo.getValue();
         String binName = fw.getBinForChip(chip);
         if (binName == null) {
             Platform.runLater(() -> {
-                statusLabel.setText("No binary defined for " + chip);
+                statusLabel.setText("Nenhum binário definido para " + chip);
                 statusLabel.setStyle("-fx-text-fill: red;");
                 flashButton.setDisable(false);
                 stopButton.setDisable(true);
@@ -579,7 +585,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
                 String url = firmwareDownloader.fetchDownloadUrl(fw, chip);
                 if (url == null) {
                     Platform.runLater(() -> {
-                        statusLabel.setText("Could not find download URL for " + binName);
+                        statusLabel.setText("Não foi possível encontrar o link de download de " + binName);
                         statusLabel.setStyle("-fx-text-fill: red;");
                         flashButton.setDisable(false);
                         stopButton.setDisable(true);
@@ -605,7 +611,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
             } catch (Exception ex) {
                 Platform.runLater(() -> {
                     logArea.appendText("[download] " + ex.getClass().getSimpleName() + ": " + ex.getMessage() + "\n");
-                    statusLabel.setText("Download failed.");
+                    statusLabel.setText("Falha no download.");
                     statusLabel.setStyle("-fx-text-fill: red;");
                     flashButton.setDisable(false);
                     stopButton.setDisable(true);
@@ -617,29 +623,21 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     private void startFactoryMode() {
         if (binPathField.getText().isEmpty()) {
             Alert alert = new Alert(Alert.AlertType.WARNING);
-            alert.setTitle("No Firmware Selected");
+            alert.setTitle("Nenhum firmware selecionado");
             alert.setHeaderText(null);
-            alert.setContentText("Please select a firmware .bin file before starting factory mode.");
+            alert.setContentText("Selecione um arquivo .bin de firmware antes de iniciar o modo produção.");
             alert.showAndWait();
             return;
         }
         if (!prereqChecker.isReady()) {
-            statusLabel.setText("esptool not ready.");
+            statusLabel.setText("esptool não está pronto.");
             return;
         }
 
-        isFactoryMode = true;
-        flashButton.setDisable(true);
-        factoryButton.setText("Stop Factory");
-        factoryButton.setOnAction(e -> stopAll());
-        stopButton.setDisable(false);
-        statusLabel.setText("Factory mode — waiting for device...");
-        statusLabel.setStyle("-fx-text-fill: #66bb6a;");
-
         // Confirmation dialog
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.setTitle("Start Factory Mode");
-        confirm.setHeaderText("Ready to flash?");
+        confirm.setTitle("Iniciar modo produção");
+        confirm.setHeaderText("Pronto para gravar?");
 
         Label binLabel = new Label(new File(binPathField.getText()).getName());
         binLabel.getStyleClass().add("confirm-bin-name");
@@ -654,12 +652,20 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         );
         confirm.setGraphic(null);
 
-        ButtonType startBtn = new ButtonType("Start Factory", ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancelBtn = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        ButtonType startBtn = new ButtonType("Iniciar Produção", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelBtn = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
         confirm.getButtonTypes().setAll(startBtn, cancelBtn);
 
         Optional<ButtonType> result = confirm.showAndWait();
         if (result.isEmpty() || result.get() != startBtn) return;
+
+        isFactoryMode = true;
+        flashButton.setDisable(true);
+        factoryButton.setText("Parar Produção");
+        factoryButton.setOnAction(e -> stopAll());
+        stopButton.setDisable(false);
+        statusLabel.setText("Modo produção — aguardando dispositivo...");
+        statusLabel.setStyle("-fx-text-fill: #66bb6a;");
 
         portWatcher.startWatching(this);
     }
@@ -669,11 +675,12 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         esptoolRunner.stopFlashing();
         isFactoryMode = false;
         flashButton.setDisable(false);
-        factoryButton.setText("Factory Mode");
+        factoryButton.setText("Modo Produção");
         factoryButton.setOnAction(e -> startFactoryMode());
         stopButton.setDisable(true);
-        statusLabel.setText("Stopped.");
+        statusLabel.setText("Parado.");
         statusLabel.setStyle("");
+        updateReadyState(false);
     }
 
 
@@ -688,19 +695,19 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         leftMenu.setPrefWidth(150);
         leftMenu.setMinWidth(150);
 
-        Label menuTitle = new Label("Settings");
+        Label menuTitle = new Label("Configurações");
         menuTitle.getStyleClass().add("settings-menu-title");
         menuTitle.setPadding(new Insets(16));
 
-        Button generalBtn = new Button("General");
+        Button generalBtn = new Button("Geral");
         generalBtn.getStyleClass().add("settings-menu-item");
         generalBtn.setMaxWidth(Double.MAX_VALUE);
 
-        Button pathsBtn = new Button("Paths");
+        Button pathsBtn = new Button("Caminhos");
         pathsBtn.getStyleClass().add("settings-menu-item");
         pathsBtn.setMaxWidth(Double.MAX_VALUE);
 
-        Button logFileBtn = new Button("Log File");
+        Button logFileBtn = new Button("Arquivo de log");
         logFileBtn.getStyleClass().add("settings-menu-item");
         logFileBtn.setMaxWidth(Double.MAX_VALUE);
 
@@ -755,10 +762,10 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     private VBox buildGeneralPane() {
         VBox pane = new VBox(12);
 
-        Label heading = new Label("General");
+        Label heading = new Label("Geral");
         heading.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
-        Label info = new Label("Last used settings are saved automatically.");
+        Label info = new Label("As últimas configurações usadas são salvas automaticamente.");
         info.setStyle("-fx-text-fill: #888888;");
 
         pane.getChildren().addAll(heading, info);
@@ -768,65 +775,17 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     private VBox buildPathsPane(Stage dialog) {
         VBox pane = new VBox(12);
 
-        Label heading = new Label("Detected Paths");
+        Label heading = new Label("Python e esptool");
         heading.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
-        Label detectedPython = detectedPathLabel("Python", prereqChecker.getPythonCmd());
-        Label detectedPip = detectedPathLabel("pip", prereqChecker.getPipCmd());
-        Label detectedEsptool = detectedPathLabel("esptool", prereqChecker.getEsptoolCmd());
+        Label info = new Label("O ESP Flasher procura o Python e o esptool automaticamente. "
+                + "Use \"Instalar\" para instalar o que faltar, ou \"Selecionar...\" para "
+                + "apontar um caminho manualmente. Um esptool.exe standalone (sem Python) "
+                + "também funciona.");
+        info.setWrapText(true);
+        info.setStyle("-fx-text-fill: #888888;");
 
-        VBox detectedBox = new VBox(4, detectedPython, detectedPip, detectedEsptool);
-        detectedBox.setStyle("-fx-background-color: rgba(255,255,255,0.04); "
-                + "-fx-border-color: rgba(255,255,255,0.08); "
-                + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8;");
-
-        Label overrideHeading = new Label("Custom Overrides");
-        overrideHeading.setStyle("-fx-font-weight: bold;");
-
-        TextField pythonField = new TextField(PrereqChecker.getCustomPythonPath());
-        pythonField.setPromptText("e.g. /usr/bin/python3");
-        HBox.setHgrow(pythonField, Priority.ALWAYS);
-        Button pythonBrowse = new Button("Browse...");
-        pythonBrowse.setOnAction(e -> {
-            FileChooser fc = new FileChooser();
-            File f = fc.showOpenDialog(dialog);
-            if (f != null) pythonField.setText(f.getAbsolutePath());
-        });
-
-        TextField esptoolField = new TextField(PrereqChecker.getCustomEsptoolPath());
-        esptoolField.setPromptText("e.g. /usr/local/bin/esptool.py");
-        HBox.setHgrow(esptoolField, Priority.ALWAYS);
-        Button esptoolBrowse = new Button("Browse...");
-        esptoolBrowse.setOnAction(e -> {
-            FileChooser fc = new FileChooser();
-            File f = fc.showOpenDialog(dialog);
-            if (f != null) esptoolField.setText(f.getAbsolutePath());
-        });
-
-        Label status = new Label();
-        Button recheckBtn = new Button("Save & Recheck");
-        recheckBtn.setOnAction(e -> {
-            PrereqChecker.setCustomPaths(pythonField.getText(), esptoolField.getText());
-            status.setText("Rechecking...");
-            new Thread(() -> {
-                prereqChecker.checkAll();
-                Platform.runLater(() -> {
-                    detectedPython.setText(detectedText("Python", prereqChecker.getPythonCmd()));
-                    detectedPip.setText(detectedText("pip", prereqChecker.getPipCmd()));
-                    detectedEsptool.setText(detectedText("esptool", prereqChecker.getEsptoolCmd()));
-                    status.setText(prereqChecker.isReady() ? "✓ Ready." : "✗ esptool not found.");
-                    status.setStyle(prereqChecker.isReady() ? "-fx-text-fill: green;" : "-fx-text-fill: red;");
-                });
-            }).start();
-        });
-
-        pane.getChildren().addAll(
-                heading, detectedBox,
-                new Separator(), overrideHeading,
-                new Label("Python:"), new HBox(8, pythonField, pythonBrowse),
-                new Label("esptool:"), new HBox(8, esptoolField, esptoolBrowse),
-                status, recheckBtn
-        );
+        pane.getChildren().addAll(heading, info, newPrereqPanel(true));
         return pane;
     }
 
@@ -834,7 +793,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         VBox pane = new VBox(12);
         AppSettings settings = settingsManager.getSettings();
 
-        Label heading = new Label("Log File");
+        Label heading = new Label("Arquivo de log");
         heading.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
         Label infoBtn = new Label("ℹ");
@@ -845,31 +804,31 @@ public class FlasherApp extends Application implements FlashListener, PortListen
                         "-fx-alignment: center; -fx-cursor: hand;");
         infoBtn.setOnMouseClicked(e -> {
             Alert info = new Alert(Alert.AlertType.NONE);
-            info.setTitle("Why use a log file?");
+            info.setTitle("Por que usar um arquivo de log?");
             info.getButtonTypes().add(ButtonType.OK);
 
-            Label title = new Label("MAC Address Provisioning Audit");
+            Label title = new Label("Auditoria de provisionamento por endereço MAC");
             title.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
 
-            Label recordedLabel = new Label("Each flash attempt is recorded with:");
+            Label recordedLabel = new Label("Cada tentativa de gravação é registrada com:");
             recordedLabel.setStyle("-fx-font-size: 12px;");
 
             VBox bullets = new VBox(4,
-                    bullet("Timestamp"),
-                    bullet("Serial port"),
-                    bullet("Device MAC address"),
-                    bullet("Status  (success / failed)")
+                    bullet("Data e hora"),
+                    bullet("Porta serial"),
+                    bullet("Endereço MAC do dispositivo"),
+                    bullet("Status  (sucesso / falha)")
             );
             bullets.setStyle("-fx-padding: 0 0 0 12;");
 
-            Label useCaseLabel = new Label("Use case — backend provisioning check:");
+            Label useCaseLabel = new Label("Caso de uso — conferência de provisionamento no backend:");
             useCaseLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 8 0 0 0;");
 
             Label useCaseBody = new Label(
-                    "Upload flash-log.csv to your backend and cross-reference the MAC " +
-                            "addresses against your provisioned-device registry. This lets you verify " +
-                            "that every flashed device was registered, catch devices that were flashed " +
-                            "but never provisioned, and flag duplicates (same MAC flashed twice)."
+                    "Envie o flash-log.csv para o seu backend e cruze os endereços MAC " +
+                            "com o cadastro de dispositivos provisionados. Assim você confirma " +
+                            "que todo dispositivo gravado foi cadastrado, encontra dispositivos gravados " +
+                            "mas nunca provisionados e identifica duplicados (mesmo MAC gravado duas vezes)."
             );
             useCaseBody.setStyle("-fx-font-size: 12px;");
             useCaseBody.setWrapText(true);
@@ -886,20 +845,20 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         HBox headingRow = new HBox(8, heading, infoBtn);
         headingRow.setAlignment(Pos.CENTER_LEFT);
 
-        CheckBox enableToggle = new CheckBox("Enable log file");
+        CheckBox enableToggle = new CheckBox("Ativar arquivo de log");
         enableToggle.setSelected(settings.isLogFileEnabled());
         enableToggle.setStyle(settings.isLogFileEnabled() ? "-fx-text-fill: #66bb6a;" : "");
 
-        Label pathLabel = new Label("Log folder:");
+        Label pathLabel = new Label("Pasta do log:");
         TextField pathField = new TextField(settings.getLogFilePath());
         pathField.setDisable(!settings.isLogFileEnabled());
         HBox.setHgrow(pathField, Priority.ALWAYS);
 
-        Button browseBtn = new Button("Browse...");
+        Button browseBtn = new Button("Procurar...");
         browseBtn.setDisable(!settings.isLogFileEnabled());
         browseBtn.setOnAction(e -> {
             javafx.stage.DirectoryChooser dc = new javafx.stage.DirectoryChooser();
-            dc.setTitle("Select Log Folder");
+            dc.setTitle("Selecionar pasta do log");
             File dir = dc.showDialog(dialog);
             if (dir != null) {
                 pathField.setText(dir.getAbsolutePath());
@@ -907,7 +866,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
             }
         });
 
-        Label formatInfo = new Label("Format: timestamp, port, MAC address, status");
+        Label formatInfo = new Label("Formato: data e hora, porta, endereço MAC, status");
         formatInfo.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
 
         enableToggle.setOnAction(e -> {
@@ -941,13 +900,13 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     // ════════════════════════════════════════════════════════
 
     private VBox buildExploreView() {
-        Label title = new Label("Explore Popular Projects");
+        Label title = new Label("Explorar projetos populares");
         title.getStyleClass().add("explore-title");
 
-        Label subtitle = new Label("Tap any project to open its GitHub repository.");
+        Label subtitle = new Label("Clique em um projeto para abrir o repositório no GitHub.");
         subtitle.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px;");
 
-        Button backBtn = new Button("← Back to Flasher");
+        Button backBtn = new Button("← Voltar ao gravador");
         backBtn.getStyleClass().add("link-button");
         backBtn.setOnAction(e -> showView(flasherView));
 
@@ -1043,15 +1002,15 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
     private Map<String, List<FirmwareDefinition>> groupByCategory() {
         Map<String, String> categoryOf = new LinkedHashMap<>();
-        categoryOf.put("Tasmota", "Smart Home & Automation");
-        categoryOf.put("Tasmota SML (ottelo9)", "Smart Home & Automation");
+        categoryOf.put("Tasmota", "Casa inteligente e automação");
+        categoryOf.put("Tasmota SML (ottelo9)", "Casa inteligente e automação");
 
         Map<String, List<FirmwareDefinition>> grouped = new LinkedHashMap<>();
-        grouped.put("Smart Home & Automation", new ArrayList<>());
-        grouped.put("Other", new ArrayList<>());
+        grouped.put("Casa inteligente e automação", new ArrayList<>());
+        grouped.put("Outros", new ArrayList<>());
 
         for (FirmwareDefinition fw : FirmwareCatalog.getCatalog()) {
-            String cat = categoryOf.getOrDefault(fw.getName(), "Other");
+            String cat = categoryOf.getOrDefault(fw.getName(), "Outros");
             grouped.get(cat).add(fw);
         }
 
@@ -1064,180 +1023,61 @@ public class FlasherApp extends Application implements FlashListener, PortListen
     // Prerequisite checks & esptool install
     // ════════════════════════════════════════════════════════
 
+    private PrereqPanel newPrereqPanel(boolean showAutoButton) {
+        PrereqPanel panel = new PrereqPanel(
+                prereqChecker,
+                mainStage,
+                url -> getHostServices().showDocument(url),
+                this::onPrereqChanged,
+                showAutoButton
+        );
+        prereqPanels.add(panel);
+        return panel;
+    }
+
     private void checkPrerequisites() {
-        statusLabel.setText("Checking prerequisites...");
+        if (!prereqPanels.isEmpty()) prereqPanels.get(0).recheck();
+    }
 
-        Thread thread = new Thread(() -> {
-            prereqChecker.checkAll();
-            Platform.runLater(() -> {
-                if (prereqChecker.isReady()) {
-                    statusLabel.setText("Ready.");
-                } else {
-                    statusLabel.setText("esptool not found — click here to install.");
-                    statusLabel.setStyle("-fx-text-fill: #2196f3; -fx-underline: true; -fx-cursor: hand;");
-                    statusLabel.setOnMouseClicked(e -> installEsptool());
-                }
-            });
-        });
-        thread.setDaemon(true);
-        thread.start();
+    /** Chamado quando a detecção/instalação começa ou termina. */
+    private void onPrereqChanged() {
+        for (PrereqPanel panel : prereqPanels) panel.refresh();
+        updateReadyState(true);
+    }
 
-        Platform.runLater(() -> {
-            if (prereqChecker.isReady()) {
-                statusLabel.setText("Ready.");
-            } else if (prereqChecker.getPythonCmd() == null) {
-                showPythonMissingDialog();
-            } else {
-                autoInstallEsptool();
+    /**
+     * Habilita os botões de gravação conforme o esptool foi encontrado e
+     * mostra o motivo na barra de status quando não está pronto.
+     */
+    private void updateReadyState(boolean touchStatus) {
+        if (statusLabel == null || flashButton == null) return;
+        boolean idle = !isFactoryMode && stopButton.isDisabled();
+        if (!idle) return;
+
+        if (PrereqPanel.isChecking()) {
+            flashButton.setDisable(true);
+            factoryButton.setDisable(true);
+            if (touchStatus) {
+                statusLabel.setText("Verificando Python e esptool...");
+                statusLabel.setStyle("");
             }
-        });
-    }
-
-    private void installEsptool() {
-        statusLabel.setStyle("");
-        statusLabel.setOnMouseClicked(null);
-        if (prereqChecker.getPythonCmd() == null) {
-            showPythonMissingDialog();
             return;
         }
-        if (prereqChecker.getPipCmd() == null) {
-            statusLabel.setText("⚠ pip not found — reinstall Python with pip included.");
-            statusLabel.setStyle("-fx-text-fill: red;");
-            return;
-        }
-        showEsptoolInstallDialog();
-    }
 
-    private void autoInstallEsptool() {
-        showEsptoolInstallDialog();
-    }
-
-    private void showEsptoolInstallDialog() {
-        Stage dialog = new Stage();
-        dialog.initModality(Modality.APPLICATION_MODAL);
-        dialog.setTitle("Installing esptool");
-        dialog.setResizable(false);
-
-        Label titleLabel = new Label("Installing esptool via pip...");
-        titleLabel.setStyle("-fx-font-weight: bold;");
-
-        ProgressBar bar = new ProgressBar();
-        bar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
-        bar.setMaxWidth(Double.MAX_VALUE);
-
-        TextArea output = new TextArea();
-        output.setEditable(false);
-        output.setWrapText(true);
-        output.setPrefHeight(180);
-        output.setPrefWidth(440);
-
-        Label statusMsg = new Label("Please wait...");
-
-        Button closeBtn = new Button("Close");
-        closeBtn.setDisable(true);
-        closeBtn.setOnAction(e -> dialog.close());
-
-        VBox root = new VBox(10, titleLabel, bar, output, statusMsg, closeBtn);
-        root.setPadding(new Insets(16));
-        root.setAlignment(Pos.CENTER_LEFT);
-
-        dialog.setScene(new Scene(root));
-
-        Thread thread = new Thread(() -> {
-            boolean success = prereqChecker.installEsptool(line ->
-                    Platform.runLater(() -> output.appendText(line + "\n"))
-            );
-
-            Platform.runLater(() -> {
-                bar.setProgress(1.0);
-                if (success) {
-                    logArea.clear();
-                    statusLabel.setText("Ready.");
-                    statusLabel.setStyle("");
-                    flashButton.setDisable(false);
-                    factoryButton.setDisable(false);
-                    dialog.close();
-                } else {
-                    statusMsg.setText("✗ Install failed. Check output above.");
-                    statusMsg.setStyle("-fx-text-fill: red;");
-                    statusLabel.setText("⚠ esptool install failed.");
-                    closeBtn.setDisable(false);
-                }
-            });
-        });
-        thread.setDaemon(true);
-        thread.start();
-
-        dialog.show();
-    }
-
-    private void showPythonMissingDialog() {
-        flashButton.setDisable(true);
-        factoryButton.setDisable(true);
-
-        Stage dialog = new Stage();
-        dialog.initModality(Modality.APPLICATION_MODAL);
-        dialog.setTitle("Python Not Found");
-        dialog.setResizable(false);
-
-        Label heading = new Label("Python 3 is required to run esptool.");
-        heading.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
-
-        String os = System.getProperty("os.name", "").toLowerCase();
-        String steps;
-        if (os.contains("win")) {
-            steps = """
-                    1. Go to https://python.org/downloads
-                    2. Download the latest Python 3 installer for Windows.
-                    3. Run the installer — check "Add Python to PATH" before clicking Install.
-                    4. Restart ESP Flasher after installation.""";
-        } else if (os.contains("mac")) {
-            steps = """
-                    Option A — Homebrew (recommended):
-                      brew install python3
-                    
-                    Option B — Installer:
-                    1. Go to https://python.org/downloads
-                    2. Download and run the macOS installer.
-                    3. Restart ESP Flasher after installation.""";
+        boolean ready = prereqChecker.isReady();
+        flashButton.setDisable(!ready);
+        factoryButton.setDisable(!ready);
+        if (!touchStatus) return;
+        if (ready) {
+            statusLabel.setText("Pronto.");
+            statusLabel.setStyle("");
+        } else if (!prereqChecker.isPythonFound()) {
+            statusLabel.setText("Python e esptool não encontrados. Use os botões Instalar ou Selecionar acima.");
+            statusLabel.setStyle("-fx-text-fill: #e53935;");
         } else {
-            steps = """
-                    Debian / Ubuntu:
-                      sudo apt install python3 python3-pip
-                    
-                    Fedora / RHEL:
-                      sudo dnf install python3
-                    
-                    Arch:
-                      sudo pacman -S python
-                    
-                    Restart ESP Flasher after installation.""";
+            statusLabel.setText("esptool não encontrado. Use os botões Instalar ou Selecionar acima.");
+            statusLabel.setStyle("-fx-text-fill: #e53935;");
         }
-
-        TextArea guide = new TextArea(steps);
-        guide.setEditable(false);
-        guide.setWrapText(true);
-        guide.setPrefHeight(140);
-        guide.setPrefWidth(400);
-        guide.setStyle("-fx-font-family: monospace; -fx-font-size: 11px;");
-
-        Button downloadBtn = new Button("Open python.org");
-        downloadBtn.setOnAction(e -> getHostServices().showDocument("https://python.org/downloads"));
-
-        Button closeBtn = new Button("Close");
-        closeBtn.setOnAction(e -> dialog.close());
-
-        HBox buttons = new HBox(10, downloadBtn, closeBtn);
-        buttons.setAlignment(Pos.CENTER_RIGHT);
-
-        VBox root = new VBox(12, heading, guide, buttons);
-        root.setPadding(new Insets(16));
-
-        dialog.setScene(new Scene(root));
-        dialog.showAndWait();
-
-        statusLabel.setText("⚠ Python not found — install Python and restart.");
-        statusLabel.setStyle("-fx-text-fill: red;");
     }
 
 
@@ -1247,7 +1087,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
     private void showAboutDialog() {
         Stage dialog = new Stage();
-        dialog.setTitle("About");
+        dialog.setTitle("Sobre");
         dialog.setResizable(false);
 
         VBox content = new VBox(12);
@@ -1275,7 +1115,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         Separator sep = new Separator();
         sep.setStyle("-fx-background-color: #3a3a3c;");
 
-        Label author = new Label("Built by Ajinkya Gokhale");
+        Label author = new Label("Criado por Ajinkya Gokhale");
         author.getStyleClass().add("about-author");
 
         Label email = new Label("✉  hi@ajinkyagokhale.com");
@@ -1286,20 +1126,28 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         github.getStyleClass().add("about-link");
         github.setOnMouseClicked(e -> getHostServices().showDocument("https://github.com/ajinkyagokhale"));
 
-        Label license = new Label("MIT License — 2026");
+        Label fork = new Label("Versão em português: Verin");
+        fork.getStyleClass().add("about-author");
+
+        Label forkLink = new Label("⚡  github.com/VerinEng3/esp-flasher-java");
+        forkLink.getStyleClass().add("about-link");
+        forkLink.setOnMouseClicked(e -> getHostServices().showDocument("https://github.com/VerinEng3/esp-flasher-java"));
+
+        Label license = new Label("Licença MIT — 2026");
         license.getStyleClass().add("about-license");
 
-        Button closeBtn = new Button("Close");
+        Button closeBtn = new Button("Fechar");
         closeBtn.setOnAction(e -> dialog.close());
         closeBtn.setPrefWidth(100);
 
         content.getChildren().addAll(
                 title, version, sep,
                 author, email, github,
+                fork, forkLink,
                 license, closeBtn
         );
 
-        Scene scene = new Scene(content, 280, 360);
+        Scene scene = new Scene(content, 320, 440);
         dialog.setScene(scene);
         dialog.show();
     }
@@ -1324,14 +1172,14 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
     @SuppressFBWarnings("DM_EXIT")
     private void promptForcedUpdate(UpdateService updates, UpdateService.Release release, String current) {
-        ButtonType updateNow = new ButtonType("Update Now", ButtonBar.ButtonData.OK_DONE);
-        ButtonType quit = new ButtonType("Quit", ButtonBar.ButtonData.CANCEL_CLOSE);
+        ButtonType updateNow = new ButtonType("Atualizar agora", ButtonBar.ButtonData.OK_DONE);
+        ButtonType quit = new ButtonType("Sair", ButtonBar.ButtonData.CANCEL_CLOSE);
 
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Update Required");
-        alert.setHeaderText("A new version of ESP Flasher is available");
-        alert.setContentText("Installed: " + current + "\nLatest: " + release.version()
-                + "\n\nYou must update to continue.");
+        alert.setTitle("Atualização necessária");
+        alert.setHeaderText("Uma nova versão do ESP Flasher está disponível");
+        alert.setContentText("Instalada: " + current + "\nNova: " + release.version()
+                + "\n\nÉ preciso atualizar para continuar.");
         alert.getButtonTypes().setAll(updateNow, quit);
         alert.initModality(Modality.APPLICATION_MODAL);
 
@@ -1352,16 +1200,16 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
         ProgressBar bar = new ProgressBar(0);
         bar.setPrefWidth(380);
-        Label info = new Label("Starting download...");
-        Label hint = new Label("The app will restart to install the update.");
+        Label info = new Label("Iniciando download...");
+        Label hint = new Label("O aplicativo será fechado para instalar a atualização.");
         hint.getStyleClass().add("footer");
         VBox box = new VBox(10, info, bar, hint);
         box.setPadding(new Insets(16));
 
-        ButtonType cancelType = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        ButtonType cancelType = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
         Alert dialog = new Alert(Alert.AlertType.NONE);
-        dialog.setTitle("Downloading Update");
-        dialog.setHeaderText("Updating to " + release.version());
+        dialog.setTitle("Baixando atualização");
+        dialog.setHeaderText("Atualizando para " + release.version());
         dialog.getDialogPane().setContent(box);
         dialog.getButtonTypes().setAll(cancelType);
         dialog.initModality(Modality.APPLICATION_MODAL);
@@ -1381,8 +1229,8 @@ public class FlasherApp extends Application implements FlashListener, PortListen
                 Platform.runLater(() -> {
                     dialog.close();
                     Alert error = new Alert(Alert.AlertType.ERROR);
-                    error.setTitle("Update Failed");
-                    error.setHeaderText("Could not download the update");
+                    error.setTitle("Falha na atualização");
+                    error.setHeaderText("Não foi possível baixar a atualização");
                     error.setContentText(e.getMessage());
                     error.showAndWait();
                     promptForcedUpdate(updates, release, updates.currentVersion());
@@ -1404,7 +1252,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
                     mb, total / 1048576.0, (int) (fraction * 100)));
         } else {
             bar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
-            info.setText(String.format("%.1f MB downloaded", mb));
+            info.setText(String.format("%.1f MB baixados", mb));
         }
     }
 
@@ -1415,9 +1263,9 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
     private void browseBin(Stage stage) {
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Select Firmware");
+        fileChooser.setTitle("Selecionar firmware");
         fileChooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("Binary files (*.bin)", "*.bin")
+                new FileChooser.ExtensionFilter("Arquivos binários (*.bin)", "*.bin")
         );
         File file = fileChooser.showOpenDialog(stage);
         if (file != null) {
@@ -1452,7 +1300,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         List<String> espPorts = PortWatcher.listEsp32Ports();
 
         if (espPorts.isEmpty()) {
-            portCombo.setPromptText("No ESP32 detected...");
+            portCombo.setPromptText("Nenhum ESP detectado...");
         } else {
             portCombo.getItems().addAll(espPorts);
             portCombo.getSelectionModel().selectFirst();
@@ -1463,18 +1311,6 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         Label l = new Label("• " + text);
         l.setStyle("-fx-font-size: 12px;");
         return l;
-    }
-
-    private Label detectedPathLabel(String name, String value) {
-        Label l = new Label(detectedText(name, value));
-        l.setStyle("-fx-font-family: monospace; -fx-font-size: 11px;");
-        return l;
-    }
-
-    private String detectedText(String name, String value) {
-        if (value == null || value.isBlank())
-            return "✗  " + name + ": not found";
-        return "✓  " + name + ": " + value;
     }
 
     private boolean isDarkMode() {

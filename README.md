@@ -1,3 +1,29 @@
+# ESP Flasher (pt-BR) — fork Verin
+
+Fork em português do [ESP Flasher](https://github.com/AjinkyaGokhale/esp-flasher-java), de Ajinkya Gokhale, para gravação de ESP32/ESP8266 em produção.
+
+## O que muda neste fork
+
+- **Interface traduzida para português (pt-BR).**
+- **Painel de pré-requisitos na tela principal.** Mostra o caminho e a versão do Python e do esptool encontrados, ou indica que não estão instalados.
+- **Botões ao lado de cada item.** "Instalar" instala o que falta (Python 3.13 via `winget`, esptool via `pip`) e "Selecionar..." aponta um caminho manualmente. Um `esptool.exe` standalone, sem Python, também é aceito.
+- **Detecção mais ampla.** Procura no launcher `py`, no PATH e nas pastas padrão do Python, e prefere o Python que já tem o esptool.
+- **Atualização automática aponta para este fork**, e o instalador MSI substitui a versão anterior ao atualizar.
+
+## Instalação
+
+Baixe o `.msi` na página de [Releases](https://github.com/VerinEng3/esp-flasher-java/releases/latest) e execute. O instalador já inclui o Java, então o computador não precisa ter Java instalado. Na primeira abertura, use os botões do painel de pré-requisitos se o Python ou o esptool não forem encontrados.
+
+## Gerar uma nova versão
+
+1. Altere `<version>` no `pom.xml` (ex.: `1.2.0`).
+2. Faça commit e crie a tag correspondente: `git tag v1.2.0 && git push origin v1.2.0`.
+3. O GitHub Actions gera o `.msi` (Windows) e o `.dmg` (macOS) e publica a release.
+
+---
+
+*Documentação original (inglês) abaixo.*
+
 # ESP Flasher — GUI Firmware Flashing Tool for ESP32 and ESP8266
 
 **ESP Flasher** is a free, open-source desktop app for flashing firmware to Espressif **ESP32**, **ESP32-S2/S3/C3/C6/H2**, and **ESP8266** microcontrollers. It wraps the official [`esptool`](https://github.com/espressif/esptool) in a native JavaFX GUI — no command line needed.

@@ -12,14 +12,14 @@ public class FirmwareCatalog {
         return List.of(
                 new FirmwareDefinition(
                         "Tasmota",
-                        "Universal smart home firmware with web UI and MQTT",
+                        "Firmware universal de automação residencial, com interface web e MQTT",
                         "arendst/Tasmota",
                         "https://tasmota.github.io",
                         tasmotaBins()
                 ),
                 new FirmwareDefinition(
                         "Tasmota SML (ottelo9)",
-                        "Tasmota with SML support for smart meter reading",
+                        "Tasmota com suporte a SML para leitura de medidores de energia",
                         "ottelo9/tasmota-sml-images",
                         "https://github.com/ottelo9/tasmota-sml-images",
                         tasmotaSmlBins()

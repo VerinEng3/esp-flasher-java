@@ -7,7 +7,7 @@
 
 	<groupId>com.ajinkyagokhale</groupId>
 	<artifactId>espflasher</artifactId>
-	<version>1.0.4</version>
+	<version>1.1.0</version>
 	<packaging>jar</packaging>
 
 	<properties>
@@ -230,7 +230,9 @@
 				<configuration>
 					<name>ESP Flasher</name>
 					<appVersion>${project.version}</appVersion>
-					<vendor>Ajinkya Gokhale</vendor>
+					<vendor>Verin</vendor>
+					<description>Gravador de firmware para ESP32 e ESP8266</description>
+					<copyright>MIT License - Ajinkya Gokhale, Verin</copyright>
 					<mainJar>espflasher-${project.version}.jar</mainJar>
 					<mainClass>com.ajinkyagokhale.espflasher.EspflasherApplication</mainClass>
 					<type>${jpackage.type}</type>
@@ -241,6 +243,8 @@
 					<winShortcut>true</winShortcut>
 					<winDirChooser>true</winDirChooser>
 					<winMenuGroup>ESP Flasher</winMenuGroup>
+					<!-- UUID fixo: versoes novas do MSI substituem a anterior em vez de instalar lado a lado -->
+					<winUpgradeUuid>6af7c35b-8d25-49d1-8ba8-20c13eb5bc54</winUpgradeUuid>
 				</configuration>
 			</plugin>
 		</plugins>

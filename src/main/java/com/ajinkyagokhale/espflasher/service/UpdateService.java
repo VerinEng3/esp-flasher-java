@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class UpdateService {
 
     private static final String LATEST_RELEASE_API =
-            "https://api.github.com/repos/AjinkyaGokhale/esp-flasher-java/releases/latest";
+            "https://api.github.com/repos/VerinEng3/esp-flasher-java/releases/latest";
 
     public record Release(String version, String downloadUrl) {}
 
@@ -104,7 +104,7 @@ public class UpdateService {
         HttpResponse<InputStream> response = http.send(
                 request, HttpResponse.BodyHandlers.ofInputStream());
         if (response.statusCode() != 200) {
-            throw new IllegalStateException("Download failed with status " + response.statusCode());
+            throw new IllegalStateException("Falha no download, status HTTP " + response.statusCode());
         }
 
         long total = response.headers().firstValueAsLong("Content-Length").orElse(-1);
