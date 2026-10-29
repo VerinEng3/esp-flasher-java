@@ -12,7 +12,7 @@ Este repositório é o **fork em português da Verin**, voltado para gravação 
 
 - **Interface toda em português (pt-BR).**
 - **Python e esptool embutidos no instalador.** O app traz um Python 3.13.13 portátil com o esptool 5.6.0, isolados do resto do computador: não dependem de nenhum Python da máquina e não alteram nada nela. É esse esptool que o app usa por padrão.
-- **Painel de pré-requisitos na tela principal.** Mostra o caminho e a versão do Python e do esptool em uso.
+- **Configurações > Caminhos** mostra o caminho e a versão do Python e do esptool em uso. A tela principal só avisa se houver algum problema.
 - **Outro esptool, se precisar.** "Selecionar..." aponta um esptool manualmente, e Configurações > Caminhos lista os encontrados no PC (Python, PATH, ESP-IDF, PlatformIO, Arduino IDE, pipx) com um botão "Usar". "Restaurar padrão" volta ao embutido.
 - **Lista de todas as instalações** em Configurações > Caminhos, com um botão "Usar" em cada uma.
 - **Instalador para Windows com escolha de modo:** para todos os usuários ou somente para o usuário atual.

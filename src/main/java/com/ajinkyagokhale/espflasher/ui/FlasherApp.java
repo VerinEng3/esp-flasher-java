@@ -115,9 +115,9 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
         primaryStage.setTitle("ESP Flasher");
         primaryStage.setWidth(780);
-        primaryStage.setHeight(740);
+        primaryStage.setHeight(650);
         primaryStage.setMinWidth(780);
-        primaryStage.setMinHeight(680);
+        primaryStage.setMinHeight(620);
 
         VBox root = new VBox(10);
         root.setPadding(new Insets(20));
@@ -126,11 +126,9 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         flasherView = new VBox(10);
         VBox.setVgrow(flasherView, Priority.ALWAYS);
 
-        flasherView.getChildren().add(newPrereqPanel(false));
         buildConfigCard(primaryStage, flasherView);
         buildButtonRow(primaryStage, flasherView);
         addProgressBar(flasherView);
-        checkPrerequisites();
         applyLastSettings();
         buildLogArea(flasherView);
 
@@ -139,6 +137,9 @@ public class FlasherApp extends Application implements FlashListener, PortListen
         VBox.setVgrow(settingsView, Priority.ALWAYS);
         settingsView.setVisible(false);
         settingsView.setManaged(false);
+
+        // Python/esptool ficam só em Configurações > Caminhos; a verificação roda ao abrir
+        checkPrerequisites();
 
         // Explore view — initially hidden
         exploreView = buildExploreView();
@@ -520,7 +521,7 @@ public class FlasherApp extends Application implements FlashListener, PortListen
 
     private void startFlash(String overridePort) {
         if (!prereqChecker.isReady()) {
-            statusLabel.setText("esptool não encontrado. Instale ou selecione o esptool acima.");
+            statusLabel.setText("esptool não encontrado. Veja Configurações > Caminhos.");
             return;
         }
 
@@ -1083,10 +1084,10 @@ public class FlasherApp extends Application implements FlashListener, PortListen
             statusLabel.setText("Pronto.");
             statusLabel.setStyle("");
         } else if (!prereqChecker.isPythonFound()) {
-            statusLabel.setText("Python e esptool não encontrados. Use os botões Instalar ou Selecionar acima.");
+            statusLabel.setText("Python e esptool não encontrados. Veja Configurações > Caminhos.");
             statusLabel.setStyle("-fx-text-fill: #e53935;");
         } else {
-            statusLabel.setText("esptool não encontrado. Use os botões Instalar ou Selecionar acima.");
+            statusLabel.setText("esptool não encontrado. Veja Configurações > Caminhos.");
             statusLabel.setStyle("-fx-text-fill: #e53935;");
         }
     }
